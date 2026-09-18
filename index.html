@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>document.documentElement.classList.add("js");</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Morine — Your AI Career Co-Pilot</title>
+  <meta name="description" content="Morine is the AI-powered career and employment platform for everyone at any level of education. Discover opportunities matched to your skills, optimise your CV, close skill gaps and land your next role." />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23705cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 8v2.2M16 21.3v2.2' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- ======= Decorative background noise ======= -->
+  <div class="bg-glow bg-glow--a" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--b" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <!-- ======= Navigation ======= -->
+  <header class="nav" id="nav">
+    <div class="nav__inner container">
+      <a href="#top" class="brand" aria-label="Morine home">
+        <span class="brand__mark">
+          <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+            <defs><linearGradient id="gbrand" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+            </linearGradient></defs>
+            <rect width="32" height="32" rx="8" fill="url(#gbrand)"/>
+            <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand__name">Morine</span>
+      </a>
+
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#features" class="nav__link">Features</a>
+        <a href="#how-it-works" class="nav__link">How it works</a>
+        <a href="#jobs" class="nav__link">Opportunities</a>
+        <a href="#faq" class="nav__link">FAQ</a>
+      </nav>
+
+      <div class="nav__actions">
+        <a href="#" class="btn btn--ghost btn--sm js-open-auth" data-mode="signin">Sign in</a>
+        <a href="#cta" class="btn btn--primary btn--sm">Get started free</a>
+        <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="mobile-menu" id="mobileMenu" hidden>
+      <nav class="mobile-menu__links" aria-label="Mobile">
+        <a href="#features" class="mobile-menu__link">Features</a>
+        <a href="#how-it-works" class="mobile-menu__link">How it works</a>
+        <a href="#jobs" class="mobile-menu__link">Opportunities</a>
+        <a href="#faq" class="mobile-menu__link">FAQ</a>
+      </nav>
+      <div class="mobile-menu__cta">
+        <a href="#cta" class="btn btn--primary">Create free account</a>
+        <a href="#" class="btn btn--ghost js-open-auth" data-mode="signin">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ======= Hero ======= -->
+    <section class="hero">
+      <div class="container hero__inner">
+
+        <div class="hero__copy reveal">
+          <span class="pill">
+            <span class="pill__dot"></span>
+            Built for every level of education, powered by AI
+          </span>
+
+          <h1 class="hero__title">
+            You've got the ambition.
+            <span class="grad-text">Morine gets you hired.</span>
+          </h1>
+
+          <p class="hero__sub">
+            Stop sending your CV into a void. Morine matches your skills, experience and
+            education to opportunities made for you — then optimises your CV, closes your
+            skill gaps and coaches you through every interview. All from one profile, built
+            around your real story.
+          </p>
+
+          <div class="hero__cta">
+            <a href="#cta" class="btn btn--primary btn--lg">
+              <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l5 5-5 5"/><path d="M2 10h14"/></svg>
+              Get started free
+            </a>
+            <a href="#jobs" class="btn btn--glass btn--lg">
+              <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5.5 4.3l10 5.7-10 5.7V4.3z"/></svg>
+              See live opportunities
+            </a>
+          </div>
+
+          <div class="hero__trust">
+            <div class="hero__avatars" aria-hidden="true">
+              <span class="avatar" style="background:#705cff">A</span>
+              <span class="avatar" style="background:#22d3ee">K</span>
+              <span class="avatar" style="background:#f472b6">S</span>
+              <span class="avatar" style="background:#34d399">T</span>
+              <span class="avatar avatar--more">+you</span>
+            </div>
+            <p class="hero__trust-text">
+              <strong>AI that's honest with you.</strong> Morine sharpens your real CV — it
+              never invents what you haven't achieved.
+            </p>
+          </div>
+        </div>
+
+        <!-- Hero visual: product mock -->
+        <div class="hero__visual reveal" aria-hidden="true">
+          <div class="mock">
+            <div class="mock__topbar">
+              <span class="mock__dots"><i></i><i></i><i></i></span>
+              <span class="mock__url">app.morine.ai / dashboard</span>
+            </div>
+
+            <div class="mock__body">
+              <div class="mock__match">
+                <div class="mock__match-badge">
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v1H6.5A1.5 1.5 0 0 0 5 8.5v7A1.5 1.5 0 0 0 6.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 17.5 7H12V6a2 2 0 1 1 4 0h1a3 3 0 0 0-5-2.2"/></svg>
+                </div>
+                <p class="mock__match-label">Top opportunity for you</p>
+                <h3 class="mock__match-title">Junior Data Analyst</h3>
+                <p class="mock__match-meta">Finovate · Lagos · Hybrid · ₦350,000/mo</p>
+
+                <div class="score">
+                  <div class="score__ring" style="--p: 96">
+                    <div class="score__ring-inner"><strong>96</strong><span>% match</span></div>
+                  </div>
+                  <div class="score__tags">
+                    <span class="tag tag--yes">Excel</span>
+                    <span class="tag tag--yes">SQL</span>
+                    <span class="tag tag--warn">Python</span>
+                  </div>
+                </div>
+
+                <a href="#" class="btn btn--primary btn--sm btn--block">Apply — it takes 2 minutes</a>
+              </div>
+
+              <div class="mock__rails">
+                <div class="rail rail--cv">
+                  <span class="rail__icon">📄</span>
+                  <div>
+                    <strong>CV Score</strong>
+                    <div class="mini-bar"><i style="--w: 82%"></i></div>
+                    <span class="rail__hint">ATS-friendly · 3 suggestions to fix</span>
+                  </div>
+                  <b>82</b>
+                </div>
+                <div class="rail rail--skills">
+                  <span class="rail__icon">🧠</span>
+                  <div>
+                    <strong>Skill gap</strong>
+                    <span class="rail__hint">Add Python · closes 2,340 more roles to you</span>
+                  </div>
+                  <b>+2</b>
+                </div>
+                <div class="rail rail--path">
+                  <span class="rail__icon">🎯</span>
+                  <div>
+                    <strong>Career path</strong>
+                    <span class="rail__hint">Analyst → DS → ML Engineer in ~4 years</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="float-card float-card--1">
+            <span class="float-card__icon">⚡</span>
+            <div><strong>Profile 92% complete</strong><small>Unlock with 3 quick edits</small></div>
+          </div>
+          <div class="float-card float-card--2">
+            <span class="float-card__icon">🎉</span>
+            <div><strong>Interview scheduled!</strong><small>Thu · Junior Data Analyst</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capability strip -->
+      <div class="container">
+        <div class="stats reveal">
+          <div class="stat">
+            <span class="stat__icon" aria-hidden="true">📄</span>
+            <h3 class="stat__num">CV scored in seconds</h3>
+            <p class="stat__desc">ATS-readiness, keyword matches and clear, actionable fixes</p>
+          </div>
+          <div class="stat">
+            <span class="stat__icon" aria-hidden="true">🎯</span>
+            <h3 class="stat__num">Matches ranked by fit</h3>
+            <p class="stat__desc">Across tech, business, healthcare, agriculture &amp; more</p>
+          </div>
+          <div class="stat">
+            <span class="stat__icon" aria-hidden="true">🧩</span>
+            <h3 class="stat__num">Skill gaps made visible</h3>
+            <p class="stat__desc">Exactly what to learn to unlock more roles</p>
+          </div>
+          <div class="stat">
+            <span class="stat__icon" aria-hidden="true">🎙</span>
+            <h3 class="stat__num">Interview-ready</h3>
+            <p class="stat__desc">AI mock interviews with instant, personal feedback</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= Features ======= -->
+    <section class="section features" id="features">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="section__eyebrow">What Morine does</span>
+          <h2 class="section__title">One platform. Every step<br />from <span class="grad-text">searching to hired</span>.</h2>
+          <p class="section__lead">
+            You don’t need more advice — you need a system. Morine turns your profile, skills and
+            ambitions into a clear, AI-driven path to the job market.
+          </p>
+        </div>
+
+        <div class="features__grid">
+          <article class="feature-card reveal" data-feature="profile">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-4.4-4.4"/><circle cx="10.5" cy="10.5" r="6.5"/><path d="M12.5 8.5l-2 3.5-1.5-1.5"/></svg></div>
+            <h3>Career Profile</h3>
+            <p>Build your AI-powered career profile — the foundation that powers job matching, CV optimization, skill-gap analysis, career paths and interview prep.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="profile">Build Your Profile →</button>
+          </article>
+
+          <article class="feature-card reveal" data-feature="cv-optimizer">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13v5M9.5 15.5L12 13l2.5 2.5"/></svg></div>
+            <h3>CV Optimizer</h3>
+            <p>Instant ATS score, keyword intelligence and suggested rewrites — improve your CV and tailor it to specific opportunities without inventing experience.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="cv-optimizer">Optimize My CV →</button>
+          </article>
+
+          <article class="feature-card reveal" data-feature="skill-gap">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div>
+            <h3>Skill-Gap Analysis</h3>
+            <p>See exactly which skills unlock more roles — and follow short, guided learning paths to close the gap fast.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="skill-gap">Analyze My Skills →</button>
+          </article>
+
+          <article class="feature-card reveal" data-feature="jobs">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18"/><path d="M12 12l4.5-4.5"/></svg></div>
+            <h3>Find Jobs</h3>
+            <p>Browse live Nigerian opportunities matched to your skills. Use AI Match for personalized fit estimates on any listing.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="jobs">Find Jobs →</button>
+          </article>
+
+          <article class="feature-card reveal" data-feature="career-path">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+            <h3>Career Path Discovery</h3>
+            <p>Discover routes you never knew you had. Morine maps your trajectory from your first job to your dream role.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="career-path">Explore Career Paths →</button>
+          </article>
+
+          <article class="feature-card reveal" data-feature="interview-prep">
+            <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="3"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 9h.01M10 11h.01"/></svg></div>
+            <h3>Interview Preparation</h3>
+            <p>Mock interviews with AI, tailored practice questions, and instant feedback — so your first "yes" comes with confidence.</p>
+            <button class="btn btn--primary btn--sm feature-cta" data-target="interview-prep">Prepare for Interview →</button>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= How it works — animated timeline ======= -->
+    <section class="section how" id="how-it-works">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="section__eyebrow">How it works</span>
+          <h2 class="section__title">From application number<br />#103 to <span class="grad-text">“You’re hired.”</span></h2>
+          <p class="section__lead">Four minutes to set up. Then Morine works while you sleep.</p>
+        </div>
+
+        <div class="timeline" id="careerTimeline">
+          <div class="timeline__track" aria-hidden="true">
+            <div class="timeline__line"></div>
+            <div class="timeline__fill"></div>
+          </div>
+
+          <ol class="timeline__steps">
+            <li class="tl-step" data-step="1">
+              <span class="tl-node"><span class="tl-node__num">01</span></span>
+              <div class="tl-card">
+                <span class="tl-card__icon">👤</span>
+                <div class="tl-card__body">
+                  <h3>Tell us about yourself</h3>
+                  <p>Share your education, projects and goals — from high school to postgraduate — or just upload your existing CV. Everything you give stays 100% yours.</p>
+                </div>
+                <span class="tl-card__tag">2 min</span>
+              </div>
+            </li>
+
+            <li class="tl-step" data-step="2">
+              <span class="tl-node"><span class="tl-node__num">02</span></span>
+              <div class="tl-card">
+                <span class="tl-card__icon">🧠</span>
+                <div class="tl-card__body">
+                  <h3>AI understands your skills</h3>
+                  <p>Morine maps your real experience against live market demand — spotting what you already excel at and which gaps block better roles.</p>
+                </div>
+                <span class="tl-card__tag">Auto</span>
+              </div>
+            </li>
+
+            <li class="tl-step" data-step="3">
+              <span class="tl-node"><span class="tl-node__num">03</span></span>
+              <div class="tl-card">
+                <span class="tl-card__icon">🎯</span>
+                <div class="tl-card__body">
+                  <h3>Discover relevant opportunities</h3>
+                  <p>Get matched to live roles you're genuinely qualified for — ranked by fit, salary and location. No more tepid submissions.</p>
+                </div>
+                <span class="tl-card__tag">Daily</span>
+              </div>
+            </li>
+
+            <li class="tl-step" data-step="4">
+              <span class="tl-node"><span class="tl-node__num">04</span></span>
+              <div class="tl-card">
+                <span class="tl-card__icon">🚀</span>
+                <div class="tl-card__body">
+                  <h3>Improve, prepare and apply</h3>
+                  <p>Raise your CV score, run mock interviews with instant feedback, then apply in a single click. Offers — not rejections.</p>
+                </div>
+                <span class="tl-card__tag">On repeat</span>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= CV Optimizer ======= -->
+    <section class="section cvopt" id="cv-optimizer" hidden style="background:linear-gradient(180deg, transparent, rgba(124,102,255,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head reveal">
+          <button class="btn btn--ghost btn--sm" id="cvBackHome">← Back to Home</button>
+          <span class="section__eyebrow">CV Optimizer</span>
+          <h2 class="section__title">Turn your CV into a<br /><span class="grad-text">stronger first impression.</span></h2>
+          <p class="section__lead">Upload your existing CV and watch Morine sharpen your wording, surface your real strengths and match the keywords recruiters actually search for.</p>
+        </div>
+
+        <div class="cvopt__trust reveal">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/>
+          </svg>
+          <p><strong>100% truthful by design.</strong> Morine improves only what you give us — we polish your wording, structure and keywords. We never invent qualifications, experience or achievements.</p>
+        </div>
+
+        <!-- CV Optimizer — functional workspace -->
+        <div id="cvGate" class="cv-gate reveal" hidden>
+          <div class="cv-gate__card">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <h3>Sign in to optimize your CV</h3>
+            <p>Upload your CV, get ATS-oriented feedback, and generate an improved version — your data stays private to your account.</p>
+            <button class="btn btn--primary js-open-auth" data-mode="signin">Sign in</button>
+            <button class="btn btn--ghost js-open-auth" data-mode="signup">Create free account</button>
+          </div>
+        </div>
+
+        <div id="cvWorkspace" class="cv-workspace reveal">
+          <div class="cv-upload">
+            <label class="cv-drop" id="cvDrop">
+              <input type="file" id="cvFile" accept=".pdf,.docx" hidden />
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13v5M9.5 15.5L12 13l2.5 2.5"/></svg>
+              <strong id="cvDropLabel">Drop PDF or DOCX here, or click to browse</strong>
+              <span>PDF or DOCX, max 5MB. Scanned/image-only PDFs are not supported (OCR coming soon).</span>
+            </label>
+            <div class="field">
+              <label for="cvJobDesc">Target job description (optional)</label>
+              <textarea id="cvJobDesc" rows="5" placeholder="Paste the job description to get tailored keyword & skill matching..."></textarea>
+            </div>
+            <div class="cv-upload__actions">
+              <button class="btn btn--primary" id="cvUploadBtn">Upload &amp; Analyze</button>
+              <span class="cv-status" id="cvUploadStatus"></span>
+            </div>
+          </div>
+
+          <div id="cvNewAction" class="cv-list" hidden><button class="btn btn--ghost btn--sm" id="cvNewBtn">Upload another CV</button></div>
+          <div id="cvList" class="cv-list"></div>
+          <div id="cvResults" class="cv-results" hidden></div>
+          <div id="cvOptimized" class="cv-optimized" hidden></div>
+        </div>
+      </div>
+    </section>
+
+<!-- ======= Skill-Gap Analysis ======= -->
+    <section class="section skillgap" id="skill-gap" hidden style="background:linear-gradient(180deg, transparent, rgba(34,211,238,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head reveal">
+          <button class="btn btn--ghost btn--sm" id="skillGapBackHome">← Back to Home</button>
+          <span class="section__eyebrow">Skill-Gap Analysis</span>
+          <h2 class="section__title">Know the gap. <span class="grad-text">Close it faster.</span></h2>
+          <p class="section__lead">We compare your Career Profile and CV against your target role — then show the exact skills to learn, why they matter, and a staged roadmap to get there. No invented qualifications, just honest guidance.</p>
+        </div>
+
+        <div id="sgGate" class="cv-gate reveal" hidden>
+          <div class="cv-gate__card">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <h3>Sign in to see your skill gaps</h3>
+            <p>Your Career Profile and CV power a personalized readiness estimate and learning roadmap for your target role.</p>
+            <button class="btn btn--primary js-open-auth" data-mode="signin">Sign in</button>
+            <button class="btn btn--ghost js-open-auth" data-mode="signup">Create free account</button>
+          </div>
+        </div>
+
+        <div id="sgWorkspace" class="cv-workspace reveal">
+          <div class="cv-upload">
+            <div class="field">
+              <label for="sgTargetRole">Target role</label>
+              <input type="text" id="sgTargetRole" placeholder="e.g. Data Analyst" />
+              <span class="field__error" style="font-size:.78rem;color:#f87171" id="sgTargetRoleError"></span>
+            </div>
+            <div class="field">
+              <label for="sgCvSelect">Use CV (optional)</label>
+              <select id="sgCvSelect" style="width:100%;background:rgba(6,10,23,.55);border:1px solid var(--border);border-radius:13px;padding:13px 15px;font-size:.95rem;">
+                <option value="">Analyze without CV (profile only)</option>
+              </select>
+              <span style="font-size:.78rem;color:var(--text-mute);margin-top:6px;display:block;">We use your CV's extracted text and prior analysis if available — without inventing skills.</span>
+            </div>
+            <div class="cv-upload__actions">
+              <button class="btn btn--primary" id="sgAnalyzeBtn">Analyze skill gap</button>
+              <span class="cv-status" id="sgStatus"></span>
+            </div>
+          </div>
+
+          <div id="sgNewAction" class="cv-list" hidden><button class="btn btn--ghost btn--sm" id="sgNewBtn">Analyze another role</button></div>
+          <div id="sgList" class="cv-list"></div>
+          <div id="sgResults" class="cv-results" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= Career Path Discovery ======= -->
+    <section class="section careerpath" id="career-path" hidden style="background:linear-gradient(180deg, transparent, rgba(124,102,255,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head reveal">
+          <button class="btn btn--ghost btn--sm" id="careerPathBackHome">← Back to Home</button>
+          <span class="section__eyebrow">Career Path Discovery</span>
+          <h2 class="section__title">Where you are. <span class="grad-text">Where you can go.</span></h2>
+          <p class="section__lead">We turn your profile, CV, skill gaps and job matches into a staged, practical roadmap to your target role — without inventing qualifications.</p>
+        </div>
+        <div id="cpGate" class="cv-gate reveal" hidden>
+          <div class="cv-gate__card">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <h3>Sign in to discover your path</h3>
+            <p>Build your profile and let Morine chart your progression to your destination role.</p>
+            <button class="btn btn--primary js-open-auth" data-mode="signin">Sign in</button>
+          </div>
+        </div>
+        <div id="cpWorkspace" class="cv-workspace reveal">
+          <div class="cv-upload">
+            <div class="field"><label for="cpTargetRole">Target role</label><input type="text" id="cpTargetRole" placeholder="e.g. Data Analyst"/></div>
+            <div class="field"><label for="cpCvSelect">CV (optional, enhances starting point)</label><select id="cpCvSelect" style="width:100%;background:rgba(6,10,23,.55);border:1px solid var(--border);border-radius:13px;padding:13px 15px;"><option value="">Without CV (profile + history)</option></select></div>
+            <div style="font-size:.85rem;color:var(--text-mute)">Uses latest Skill-Gap and recent Job Matches automatically.</div>
+            <div class="cv-upload__actions"><button class="btn btn--primary" id="cpAnalyzeBtn">Build My Career Path</button><span class="cv-status" id="cpStatus"></span></div>
+          </div>
+          <div id="cpNewAction" class="cv-list" hidden><button class="btn btn--ghost btn--sm" id="cpNewBtn">Build another path</button></div>
+          <div id="cpList" class="cv-list"></div>
+          <div id="cpResults" class="cv-results" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= Interview Preparation ======= -->
+    <section class="section interview" id="interview-prep" hidden style="background:linear-gradient(180deg, transparent, rgba(34,211,238,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head reveal">
+          <button class="btn btn--ghost btn--sm" id="interviewBackHome">← Back to Home</button>
+          <span class="section__eyebrow">Interview Preparation</span>
+          <h2 class="section__title">Walk in <span class="grad-text">prepared.</span></h2>
+          <p class="section__lead">Personalized interview questions and guidance based on your actual profile, CV, skill gaps, career path and target job — no invented experience.</p>
+        </div>
+        <div id="ipGate" class="cv-gate reveal" hidden>
+          <div class="cv-gate__card">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <h3>Sign in to prepare</h3>
+            <p>Get role-specific, CV-based and scenario questions with answer frameworks.</p>
+            <button class="btn btn--primary js-open-auth" data-mode="signin">Sign in</button>
+          </div>
+        </div>
+        <div id="ipWorkspace" class="cv-workspace reveal">
+          <div class="cv-upload">
+            <div class="field"><label for="ipTargetRole">Target role</label><input type="text" id="ipTargetRole" placeholder="e.g. Data Analyst"/></div>
+            <div class="field"><label for="ipCvSelect">CV (optional)</label><select id="ipCvSelect" style="width:100%;background:rgba(6,10,23,.55);border:1px solid var(--border);border-radius:13px;padding:13px 15px;"><option value="">Without CV</option></select></div>
+            <div class="field"><label for="ipJobSelect">Job (optional, for job-specific prep)</label><select id="ipJobSelect" style="width:100%;background:rgba(6,10,23,.55);border:1px solid var(--border);border-radius:13px;padding:13px 15px;"><option value="">General role preparation</option></select></div>
+            <div class="cv-upload__actions"><button class="btn btn--primary" id="ipAnalyzeBtn">Prepare Me for the Interview</button><span class="cv-status" id="ipStatus"></span></div>
+          </div>
+          <div id="ipNewAction" class="cv-list" hidden><button class="btn btn--ghost btn--sm" id="ipNewBtn">Prepare another interview</button></div>
+          <div id="ipList" class="cv-list"></div>
+          <div id="ipResults" class="cv-results" hidden></div>
+        </div>
+      </div>
+    </section>
+
+<!-- ======= Opportunities / Jobs ======= -->
+    <section class="section jobs" id="jobs" hidden style="background:linear-gradient(180deg, transparent, rgba(124,102,255,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head section__head--row reveal">
+          <button class="btn btn--ghost btn--sm" id="jobsBackHome">← Back to Home</button>
+          <span class="section__eyebrow">Live opportunities</span>
+            <h2 class="section__title">Matched to <span class="grad-text">you</span>, not to a guess.</h2>
+          </div>
+          <div class="jobs__filters">
+            <button type="button" class="chip is-active" data-filter="all">All roles</button>
+            <button type="button" class="chip" data-filter="tech">Tech</button>
+            <button type="button" class="chip" data-filter="business">Business</button>
+            <button type="button" class="chip" data-filter="creative">Creative</button>
+            <button type="button" class="chip" data-filter="healthcare">Healthcare</button>
+            <button type="button" class="chip" data-filter="education">Education</button>
+            <button type="button" class="chip" data-filter="agriculture">Agriculture</button>
+            <button type="button" class="chip" data-filter="engineering">Engineering</button>
+          </div>
+        </div>
+
+        <!-- Live job search bar -->
+        <div class="live-search reveal">
+          <div class="live-search__bar">
+            <div class="live-search__input-wrap">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="liveKeyword" placeholder="Job title, keyword, or company..." />
+            </div>
+            <div class="live-search__input-wrap">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <input type="text" id="liveLocation" placeholder="Location (e.g. Lagos, Remote)" />
+            </div>
+            <button class="btn btn--primary" id="liveSearchBtn">Search</button>
+          </div>
+          <div class="live-search__quick">
+            <button onclick="window.Morine.quickSearch('data analyst','Nigeria')">Data Analyst</button>
+            <button onclick="window.Morine.quickSearch('software developer','Nigeria')">Software Developer</button>
+            <button onclick="window.Morine.quickSearch('project manager','Lagos')">Project Manager</button>
+            <button onclick="window.Morine.quickSearch('remote','')">Remote Jobs</button>
+            <button onclick="window.Morine.quickSearch('intern','Nigeria')">Internships</button>
+            <button type="button" class="chip" id="liveNewSearch" hidden>New search</button>
+          </div>
+          <div class="live-search__status" id="liveStatus"></div>
+        </div>
+
+        <div class="jobs__grid" id="liveResults"></div>
+        <div class="live-search__pagination" id="livePagination"></div>
+        <div id="jobMatchResults" class="cv-results" hidden style="margin-top:28px"></div>
+        <div id="jobMatchList" class="cv-list" style="margin-top:20px"></div>
+      </div>
+    </section>
+
+    <!-- ======= FAQ ======= -->
+    <section class="section faq" id="faq">
+      <div class="container container--slim">
+        <div class="section__head reveal">
+          <span class="section__eyebrow">Questions</span>
+          <h2 class="section__title">Everything you’re <span class="grad-text">wondering</span>.</h2>
+        </div>
+
+        <div class="faq__list reveal">
+          <details class="faq__item">
+            <summary>Is Morine really free?</summary>
+            <p>Yes. The free plan covers your AI career profile, CV scoring, job matching and skill-gap insights. Upgrade only when you want premium interview coaching and advanced analytics.</p>
+          </details>
+          <details class="faq__item">
+            <summary>I have little or no experience. Will I be at a disadvantage?</summary>
+            <p>Never. Morine is built for job seekers at every level — whether you're starting out, switching careers or climbing the ladder. We match you against roles that fit your skills and education, weigh your projects and certifications, and help you present them as the experience they truly are.</p>
+          </details>
+          <details class="faq__item">
+            <summary>How does the AI improve my CV?</summary>
+            <p>Our engine reads your CV and the roles you want, then scores it against recruiter and ATS standards — rewording bullets, adding missing keywords and fixing structure in one click.</p>
+          </details>
+          <details class="faq__item">
+            <summary>How long until I get my first interview?</summary>
+            <p>Timing depends on the market you're in, but a complete profile dramatically improves your odds. Morine's match quality rises with every detail you add — so start simple and refine as you go.</p>
+          </details>
+          <details class="faq__item">
+            <summary>Which locations and industries does Morine cover?</summary>
+            <p>Morine covers job seekers across every region of Nigeria — Lagos, Abuja, Port Harcourt, Kano, Ibadan, Osogbo, Enugu, Calabar and remote roles — spanning tech, business, healthcare, education, agriculture, creative and engineering. Industries and locations keep growing as the platform scales.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= Final CTA / Create account ======= -->
+    <section class="section cta" id="cta">
+      <div class="container">
+        <div class="cta__panel reveal">
+          <div class="bg-glow bg-glow--c" aria-hidden="true"></div>
+          <div class="cta__panel-inner">
+            <span class="pill pill--light"><span class="pill__dot"></span>Free forever for job seekers</span>
+            <h2 class="cta__title">The job market is waiting.<br /><span class="grad-text">Your next chapter starts in 60 seconds.</span></h2>
+            <p class="cta__sub">Create your free account. Build your AI profile. Let Morine open the right doors — one application at a time.</p>
+
+            <div class="cta__form-shell">
+              <form class="cta__form" id="ctaForm" novalidate>
+                <div class="field">
+                  <label class="sr-only" for="ctaName">Full name</label>
+                  <input type="text" id="ctaName" name="name" placeholder="Your full name" autocomplete="name" required />
+                  <span class="field__error" data-error-for="ctaName"></span>
+                </div>
+                <div class="field">
+                  <label class="sr-only" for="ctaEmail">Email address</label>
+                  <input type="email" id="ctaEmail" name="email" placeholder="you@email.com" autocomplete="email" required />
+                  <span class="field__error" data-error-for="ctaEmail"></span>
+                </div>
+                <div class="field">
+                  <label class="sr-only" for="ctaPassword">Password</label>
+                  <div class="field__group">
+                    <input type="password" id="ctaPassword" name="password" placeholder="Create a password" autocomplete="new-password" required />
+                    <button type="button" class="field__toggle" data-toggle-password="ctaPassword" aria-label="Show password">
+                      <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+                      <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <span class="field__error" data-error-for="ctaPassword"></span>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn--primary btn--lg btn--block">Create my free account</button>
+              </form>
+              <p class="cta__fineprint">Free forever · No credit card · Unsubscribe anytime</p>
+            </div>
+
+            <div class="cta__alt">
+              <span>Already have an account?</span>
+              <a href="#" class="link js-open-auth" data-mode="signin">Sign in</a>
+            </div>
+          </div>
+
+          <div class="cta__proof" aria-hidden="true">
+            <div class="proof-card">
+              <div class="proof-card__top">
+                <span class="proof-card__avatar avatar proof-card__avatar--demo" style="background:#34d399">✦</span>
+                <div><strong>Sample match found</strong><small>Illustrative · demo data</small></div>
+                <span class="proof-card__check">✓</span>
+              </div>
+              <p>Your profile is scored against each role — skills, experience, location and salary, all weighted by fit.</p>
+              <div class="mini-bar mini-bar--green"><i style="--w: 96%"></i></div>
+              <span class="proof-card__hint">96% fit · Junior Data Analyst · Lagos</span>
+            </div>
+            <div class="proof-card proof-card--profile">
+              <div class="proof-gauge">
+                <div class="proof-gauge__ring" style="--p: 92"><span>92<span>/100</span></span></div>
+                <div>
+                  <strong>Profile strength</strong>
+                  <small>Demo profile · 4 quick edits to 100</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+<!-- ======= Career Profile ======= -->
+    <section class="section profile" id="profile" hidden style="background:linear-gradient(180deg, transparent, rgba(124,102,255,.04) 50%, transparent)">
+      <div class="container">
+        <div class="section__head reveal">
+          <button class="btn btn--ghost btn--sm" id="profileBackHome">← Back to Home</button>
+          <span class="pill"><span class="pill__dot"></span>Your foundation</span>
+          <h2 class="section__title">Career Profile</h2>
+          <p class="section__sub">Build your profile once — it powers job matching, CV optimization, skill-gap analysis, career path discovery and interview preparation.</p>
+        </div>
+        <div class="profile-panel reveal">
+          <!-- Rendered by JS: auth gate or profile form -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======= Footer ======= -->
+  <footer class="footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a href="#top" class="brand" aria-label="Morine home">
+          <span class="brand__mark brand__mark--sm">
+            <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+              <defs><linearGradient id="gfoot" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+              </linearGradient></defs>
+              <rect width="32" height="32" rx="8" fill="url(#gfoot)"/>
+              <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="brand__name">Morine</span>
+        </a>
+        <p class="footer__tagline">Helping people turn skills into opportunities.</p>
+        <div class="footer__socials">
+          <a href="#" aria-label="Morine on X (formerly Twitter)"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-6.7 7.7L23.2 22h-6.2l-4.9-6.4L6.5 22H3.4l7.2-8.2L2 2h6.3l4.4 5.8L18.9 2zm-1 18h1.7L7.1 3.6H5.3L17.9 20z"/></svg></a>
+          <a href="#" aria-label="Morine on LinkedIn"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5A2.5 2.5 0 1 1 0 3.5a2.5 2.5 0 0 1 4.98 0zM.5 8h4.5v15H.5zm7.5 0h4.3v2h.06c.6-1.1 2-2.3 4.2-2.3 4.5 0 5.4 3 5.4 6.9V23h-4.5v-7.3c0-1.7 0-4-2.4-4-2.4 0-2.8 1.9-2.8 3.8V23H8z"/></svg></a>
+          <a href="#" aria-label="Morine on Instagram"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
+        </div>
+      </div>
+
+      <nav class="footer__col" aria-label="Product">
+        <h4 class="footer__title">Product</h4>
+        <a href="#jobs">Opportunities</a>
+        <a href="#cv-optimizer">CV Optimizer</a>
+        <a href="#how-it-works">Career AI</a>
+        <a href="#features">Skill Analysis</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Company">
+        <h4 class="footer__title">Company</h4>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Legal">
+        <h4 class="footer__title">Legal</h4>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+      </nav>
+    </div>
+
+    <div class="container footer__bottom">
+      <span>© 2026 Morine Technologies. Made with 🤍 for job seekers.</span>
+      <span>Osogbo, Osun State · Remote 🌍</span>
+    </div>
+  </footer>
+
+  <!-- ======= Auth Modal ======= -->
+  <div class="modal" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
+    <div class="modal__backdrop" data-close-auth></div>
+    <div class="modal__card">
+      <button class="modal__close" data-close-auth aria-label="Close">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+
+      <div class="modal__head">
+        <span class="brand__mark brand__mark--lg">
+          <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+            <defs><linearGradient id="gmodal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+            </linearGradient></defs>
+            <rect width="32" height="32" rx="8" fill="url(#gmodal)"/>
+            <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <h2 id="authTitle" class="modal__title">Join Morine</h2>
+        <p class="modal__sub">Your future employer is already looking for you.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab is-active" role="tab" aria-selected="true" data-tab="signup">Sign up</button>
+        <button type="button" class="auth-tab" role="tab" aria-selected="false" data-tab="signin">Sign in</button>
+      </div>
+
+      <!-- Sign up -->
+      <form class="auth-form" id="signupForm" novalidate>
+        <div class="field">
+          <label for="suName">Full name</label>
+          <input type="text" id="suName" name="name" placeholder="e.g. Aisha Lawal" autocomplete="name" required />
+          <span class="field__error" data-error-for="suName"></span>
+        </div>
+        <div class="field">
+          <label for="suEmail">Email address</label>
+          <input type="email" id="suEmail" name="email" placeholder="you@email.com" autocomplete="email" required />
+          <span class="field__error" data-error-for="suEmail"></span>
+        </div>
+        <div class="field">
+          <label for="suPassword">Password</label>
+          <div class="field__group">
+            <input type="password" id="suPassword" name="password" placeholder="8+ characters" autocomplete="new-password" minlength="8" required />
+            <button type="button" class="field__toggle" data-toggle-password="suPassword" aria-label="Show password">
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <span class="field__error" data-error-for="suPassword"></span>
+        </div>
+        <div class="field field--check">
+          <label class="check">
+            <input type="checkbox" name="terms" required />
+            <span>I agree to the <a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a></span>
+          </label>
+          <span class="field__error" data-error-for="terms"></span>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">Create my free account</button>
+        <div class="auth-form__divider"><span>or</span></div>
+        <div class="auth-form__socials">
+          <button type="button" class="btn btn--ghost btn--soc">G &nbsp;Continue with Google</button>
+          <button type="button" class="btn btn--ghost btn--soc">⌘ &nbsp;Continue with Apple</button>
+        </div>
+      </form>
+
+      <!-- Sign in -->
+      <form class="auth-form" id="signinForm" hidden novalidate>
+        <div class="field">
+          <label for="siEmail">Email address</label>
+          <input type="email" id="siEmail" name="email" placeholder="you@email.com" autocomplete="email" required />
+          <span class="field__error" data-error-for="siEmail"></span>
+        </div>
+        <div class="field">
+          <label for="siPassword">Password</label>
+          <div class="field__group">
+            <input type="password" id="siPassword" name="password" placeholder="Your password" autocomplete="current-password" required />
+            <button type="button" class="field__toggle" data-toggle-password="siPassword" aria-label="Show password">
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+              <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <span class="field__error" data-error-for="siPassword"></span>
+        </div>
+        <div class="auth-form__row">
+          <label class="check"><input type="checkbox" name="remember" /><span>Remember me</span></label>
+          <a href="#" class="link">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">Sign in</button>
+        <div class="auth-form__divider"><span>or</span></div>
+        <div class="auth-form__socials">
+          <button type="button" class="btn btn--ghost btn--soc">G &nbsp;Continue with Google</button>
+          <button type="button" class="btn btn--ghost btn--soc">⌘ &nbsp;Continue with Apple</button>
+        </div>
+      </form>
+
+      <p class="modal__foot">By joining you agree to receive career insights. You can opt out anytime.</p>
+    </div>
+  </div>
+
+  <!-- Global toast -->
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+const mongoose=require("mongoose");
+const interviewSchema=new mongoose.Schema({
+ userId:{type:mongoose.Schema.Types.ObjectId,ref:"User",required:true,index:true},
+ targetRole:{type:String,required:true,maxlength:200},
+ jobId:{type:String,default:""},
+ jobTitle:{type:String,default:""},
+ company:{type:String,default:""},
+ preparationType:{type:String,enum:["general","job-specific"],default:"general"},
+ summary:{type:String,default:""},
+ readiness:{type:Number,min:0,max:100,default:0},
+ focusAreas:{type:[String],default:[]},
+ questions:[{
+   id:{type:String,required:true},
+   category:{type:String,required:true},
+   question:{type:String,required:true},
+   whyItMatters:{type:String,default:""},
+   whatToCover:{type:[String],default:[]},
+   difficulty:{type:String,enum:["Easy","Medium","Hard"],default:"Medium"},
+   followUpQuestions:{type:[String],default:[]}
+ }],
+ answerGuidance:[{
+   questionId:{type:String,required:true},
+   framework:{type:String,default:""},
+   keyPoints:{type:[String],default:[]},
+   warningPoints:{type:[String],default:[]}
+ }],
+ skillFocus:[{skill:{type:String,required:true},reason:{type:String,default:""},preparationAction:{type:String,default:""}}],
+ behavioralTopics:{type:[String],default:[]},
+ studyPlan:[{stage:{type:Number,required:true},title:{type:String,required:true},actions:{type:[String],default:[]},resources:{type:[String],default:[]},completionCriteria:{type:String,default:""}}],
+ nextSteps:{type:[String],default:[]}
+},{timestamps:true});
+interviewSchema.index({userId:1,createdAt:-1});
+module.exports=mongoose.model("InterviewPreparation",interviewSchema);

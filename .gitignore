@@ -1,0 +1,39 @@
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+!backend/.env.example
+
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Logs
+*.log
+server_out.log
+out.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build output
+dist/
+build/
+
+# Test files (not for production)
+backend/test-*.js
+
+# Temporary files
+backend/test-auth-refresh*.js
+backend/server_out.log
+
+# Ensure backend/.env is ignored
+backend/.env

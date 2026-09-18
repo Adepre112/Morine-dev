@@ -1,0 +1,14 @@
+const express = require("express");
+const { authMiddleware } = require("../middleware/auth");
+const controller = require("../controllers/skillGapController");
+
+const router = express.Router();
+
+router.use(authMiddleware);
+
+router.post("/analyze", (req, res) => controller.analyze(req, res));
+router.get("/", (req, res) => controller.list(req, res));
+router.get("/:id", (req, res) => controller.getOne(req, res));
+router.delete("/:id", (req, res) => controller.remove(req, res));
+
+module.exports = router;

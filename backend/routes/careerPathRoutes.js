@@ -1,0 +1,10 @@
+const express=require("express");
+const {authMiddleware}=require("../middleware/auth");
+const c=require("../controllers/careerPathController");
+const router=express.Router();
+router.use(authMiddleware);
+router.post("/analyze",(req,res)=>c.analyze(req,res));
+router.get("/",(req,res)=>c.list(req,res));
+router.get("/:id",(req,res)=>c.getOne(req,res));
+router.delete("/:id",(req,res)=>c.remove(req,res));
+module.exports=router;

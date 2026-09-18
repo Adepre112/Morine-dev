@@ -1,0 +1,28 @@
+{
+  "name": "morine-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Morine AI Career Assistant",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^2.23.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.12.3",
+    "mongoose": "^9.10.1",
+    "multer": "^2.0.1",
+    "openai": "^4.28.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.20.2"
+  }
+}
