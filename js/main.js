@@ -85,12 +85,14 @@
   let currentUser = null;
 
   function getToken() {
-    return localStorage.getItem(AUTH_KEY);
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return raw; }
   }
 
   function setToken(token) {
     if (token) {
-      localStorage.setItem(AUTH_KEY, token);
+      localStorage.setItem(AUTH_KEY, JSON.stringify(token));
     } else {
       localStorage.removeItem(AUTH_KEY);
     }
@@ -170,7 +172,7 @@
       $("#navLogoutBtn").addEventListener("click", handleLogout);
     } else {
       navActions.innerHTML =
-        '<a href="#" class="btn btn--ghost btn--sm js-open-auth" data-mode="signin">Sign in</a>' +
+        '<a href="/signin" class="btn btn--ghost btn--sm js-open-auth" data-mode="signin">Sign in</a>' +
         '<a href="#cta" class="btn btn--primary btn--sm">Get started free</a>';
       navActions.querySelectorAll(".js-open-auth").forEach((btn) =>
         btn.addEventListener("click", (e) => {
@@ -189,12 +191,13 @@
     try {
       const data = await apiRequest("/api/auth/me", "GET");
       currentUser = data.user;
+      localStorage.setItem("morine_app_user", JSON.stringify(currentUser));
       updateNavAuthState();
       loadProfile();
     } catch {
       // try refresh once if access expired
-      try{ await doRefresh(); const data2=await apiRequest("/api/auth/me","GET"); currentUser=data2.user; updateNavAuthState(); loadProfile(); }
-      catch{ setToken(null); currentUser = null; updateNavAuthState(); }
+      try{ await doRefresh(); const data2=await apiRequest("/api/auth/me","GET"); currentUser=data2.user; localStorage.setItem("morine_app_user", JSON.stringify(currentUser)); updateNavAuthState(); loadProfile(); }
+      catch{ setToken(null); currentUser = null; localStorage.removeItem("morine_app_user"); updateNavAuthState(); }
     }
   }
 
@@ -534,6 +537,7 @@
       });
       setToken(data.token);
       currentUser = data.user;
+      localStorage.setItem("morine_app_user", JSON.stringify(currentUser));
       signupForm.reset();
       closeAuth();
       updateNavAuthState();
@@ -563,6 +567,7 @@
       });
       setToken(data.token);
       currentUser = data.user;
+      localStorage.setItem("morine_app_user", JSON.stringify(currentUser));
       signinForm.reset();
       closeAuth();
       updateNavAuthState();
@@ -634,6 +639,7 @@
     } catch {}
     setToken(null);
     currentUser = null;
+    localStorage.removeItem("morine_app_user");
     clearAllTemporaryState();
     updateNavAuthState();
     showToast("Signed out successfully.");
@@ -714,7 +720,7 @@
     }
   });
 
-  /* ---------- 8. Live job search (HotNigerianJobs) ---------- */
+  /* ---------- 8. Live job search (Job Listings API) ---------- */
   const liveKeyword = $("#liveKeyword");
   const liveLocation = $("#liveLocation");
   const liveSearchBtn = $("#liveSearchBtn");

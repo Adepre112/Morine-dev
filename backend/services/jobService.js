@@ -1,45 +1,60 @@
 const config = require("../config");
-const { MOCK_JOBS, searchMockJobs, filterMockJobsByLocation } = require("../data/mockJobs");
 
 /**
- * Parse HotNigerianJobs Service
+ * JobService — Job Listings API integration
  *
- * Credit costs:
- * - search_jobs: 2 credits/call (keyword-filtered, returns all matches)
- * - list_jobs: 1 credit/call (paginated, no keyword filter)
- * - get_job_details: 1 credit/call (full job data)
+ * Docs: https://www.joblistingsapi.com/docs
+ *   Base URL : https://api.joblistingsapi.com/v1
+ *   Endpoint : GET /jobs
+ *   Auth     : X-API-Key: process.env.JOB_LISTING_API_KEY
+ *   List     : { success: true, jobs: [...], total: number }
+ *   Errors   : { detail: string|array, code: string }
  *
- * Free tier: 200 credits/month, 5 req/min.
+ * Morine is Nigeria-only: country=NG is always sent, and any record that
+ * explicitly reports a different country is discarded before it is returned.
  *
- * Mock mode:
- * - When USE_MOCK_DATA=true in .env, serves mock data without API calls
- * - When API key is missing/placeholder, falls back to mock data
- * - When API returns errors (429, 502, etc.), falls back to mock data
- * - Real API integration is preserved and used when available
+ * Plan notes (Free tier): description_html is Starter+, and role_category /
+ * salary_min / salary_max / cursor are Growth+. Those are therefore never sent
+ * as request parameters, so the Free plan cannot return 403 plan_filter_forbidden.
  */
+class JobListingError extends Error {
+  constructor(code, detail, status, retryAfter) {
+    super(detail || code);
+    this.name = "JobListingError";
+    this.code = code;
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
 class JobService {
   constructor() {
-    this.baseUrl = config.parse.baseUrl;
-    this.apiKey = config.parse.apiKey;
-    this.defaultPerPage = config.parse.defaultPerPage;
-    this.maxPerPage = config.parse.maxPerPage;
+    const jl = config.jobListings;
+    this.baseUrl = jl.baseUrl;
+    this.apiKey = jl.apiKey;
+    this.countryCode = jl.countryCode;
+    this.defaultPerPage = jl.defaultPerPage;
+    this.maxPerPage = jl.maxPerPage;
+    this.cacheTTL = jl.cacheTTL;
+    this.requestTimeoutMs = jl.requestTimeoutMs;
     this.cache = new Map();
-    this.cacheTTL = 30 * 60 * 1000; // 30 minutes for stubs
-    this.detailCacheTTL = 60 * 60 * 1000; // 1 hour for details
+    // Local circuit breaker so a rate-limited window is never re-attempted.
     this.rateLimitedUntil = 0;
-
-    // Mock mode: use when API unavailable or explicitly enabled
-    this.useMock = process.env.USE_MOCK_DATA === "true" || !this.hasCredentials();
   }
 
   hasCredentials() {
-    return Boolean(this.apiKey && this.apiKey !== "YOUR_API_KEY_HERE");
+    const k = this.apiKey;
+    if (!k) return false;
+    const v = String(k).trim();
+    if (!v) return false;
+    // Reject documented placeholders without ever logging the value.
+    return !/^YOUR_/i.test(v) && !/your_key_here/i.test(v);
   }
 
-  getCached(key, ttl) {
+  getCached(key) {
     const entry = this.cache.get(key);
     if (!entry) return null;
-    if (Date.now() - entry.ts > (ttl || this.cacheTTL)) {
+    if (Date.now() - entry.ts > this.cacheTTL) {
       this.cache.delete(key);
       return null;
     }
@@ -47,330 +62,186 @@ class JobService {
   }
 
   setCache(key, data) {
+    if (this.cache.size > 200) this.cache.clear();
     this.cache.set(key, { data, ts: Date.now() });
   }
 
-  /**
-   * Make an authenticated request to the Parse API.
-   * Only called when NOT in mock mode.
-   */
-  async parseFetch(endpoint, params = {}) {
-    const now = Date.now();
-    if (now < this.rateLimitedUntil) {
-      await new Promise((r) => setTimeout(r, this.rateLimitedUntil - now));
+  buildUrl(params) {
+    const url = new URL(`${this.baseUrl}/jobs`);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") url.searchParams.append(k, String(v));
+    });
+    return url;
+  }
+
+  async apiFetch(params) {
+    if (!this.hasCredentials()) {
+      throw new JobListingError("missing_api_key", "Job Listings API key is not configured on the server.", 500);
     }
 
-    const url = new URL(`${this.baseUrl}/${endpoint}`);
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== "") {
-        url.searchParams.append(k, String(v));
-      }
-    });
+    const now = Date.now();
+    if (now < this.rateLimitedUntil) {
+      const retryAfter = Math.max(1, Math.ceil((this.rateLimitedUntil - now) / 1000));
+      throw new JobListingError("rate_limited", "Job service rate limit reached.", 429, retryAfter);
+    }
 
+    const url = this.buildUrl(params);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
 
+    let response;
     try {
-      const response = await fetch(url.toString(), {
+      response = await fetch(url.toString(), {
         headers: { "X-API-Key": this.apiKey, Accept: "application/json" },
         signal: controller.signal,
       });
-
-      clearTimeout(timeout);
-
-      if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get("Retry-After") || "60", 10);
-        this.rateLimitedUntil = Date.now() + retryAfter * 1000;
-        throw new Error(`RATE_LIMITED:${retryAfter}`);
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new JobListingError("upstream_timeout", "The job service took too long to respond.", 504);
       }
-      if (response.status === 401 || response.status === 403) throw new Error("AUTH_ERROR");
-      if (!response.ok) throw new Error(`PARSE_API_ERROR:${response.status}`);
-
-      return await response.json();
-    } catch (error) {
-      clearTimeout(timeout);
-      if (error.name === "AbortError") throw new Error("TIMEOUT");
-      throw error;
+      throw new JobListingError("upstream_unreachable", "Could not reach the job service.", 502);
+    } finally {
+      clearTimeout(timer);
     }
+
+    let body = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+
+    if (response.ok) {
+      return {
+        body,
+        rateLimit: {
+          limit: response.headers.get("X-RateLimit-Limit"),
+          remaining: response.headers.get("X-RateLimit-Remaining"),
+          reset: response.headers.get("X-RateLimit-Reset"),
+        },
+      };
+    }
+
+    // Documented stable codes: missing_api_key, invalid_api_key,
+    // account_suspended, plan_filter_forbidden, unknown_role_category,
+    // rate_limited, not_found, validation_error.
+    const code = (body && typeof body.code === "string" && body.code) ||
+      (response.status === 429 ? "rate_limited" : "upstream_error");
+
+    if (response.status === 429 || code === "rate_limited") {
+      const retryAfter = parseInt(response.headers.get("Retry-After") || "60", 10) || 60;
+      this.rateLimitedUntil = Date.now() + retryAfter * 1000;
+      throw new JobListingError("rate_limited", "Job service rate limit reached.", 429, retryAfter);
+    }
+
+    // detail is a string on most errors but an array on 422 validation errors.
+    const detail = body && typeof body.detail === "string"
+      ? body.detail
+      : (body && Array.isArray(body.detail) ? body.detail.map((d) => d && (d.msg || d)).filter(Boolean).join("; ") : null);
+
+    throw new JobListingError(code, detail, response.status);
   }
 
-  // ─── MOCK MODE ────────────────────────────────────────────────────
+  /** Map a JobV1 record onto Morine's job shape. Never fabricates values. */
+  normalizeJob(raw) {
+    const r = raw || {};
+    const loc = r.location && typeof r.location === "object" ? r.location : {};
+    const sal = r.salary && typeof r.salary === "object" ? r.salary : null;
+
+    const locationFallback = [loc.city, loc.region].filter(Boolean).join(", ");
+
+    const description = typeof r.description_html === "string" && r.description_html.trim()
+      ? r.description_html
+      : null;
+
+    return {
+      id: r.id != null ? r.id : null,
+      title: r.title || "Untitled role",
+      company: r.company || null,
+      location: loc.raw || locationFallback || null,
+      city: loc.city || null,
+      region: loc.region || null,
+      countryCode: loc.country_code || null,
+      employmentType: r.employment_type || null,
+      remotePolicy: r.remote_policy || null,
+      remote: r.is_remote === true,
+      remoteScope: r.remote_scope || null,
+      category: r.role_category || null,
+      subcategory: r.role_subcategory || null,
+      salary: sal ? (sal.display || null) : null,
+      salaryMin: sal && sal.min != null ? sal.min : null,
+      salaryMax: sal && sal.max != null ? sal.max : null,
+      salaryCurrency: sal ? (sal.currency || null) : null,
+      // null on plans without description_html (Free) — never invented.
+      description,
+      postedDate: r.listed_at || r.created_at || null,
+      updatedDate: r.updated_at || null,
+      validThrough: r.valid_through || null,
+      status: r.status || null,
+      // Real application/listing URL. Always populated upstream.
+      url: r.url || null,
+      source: r.source || null,
+    };
+  }
 
   /**
-   * Search mock jobs by keyword and location.
-   * No API credits consumed.
+   * GET /api/jobs  →  Job Listings API  GET /jobs
+   * Morine params (keyword, location, page, limit) are translated to
+   * title, location, offset, limit. country=NG is always included.
    */
-  mockSearchJobs({ keyword = "", location = "", page = 1, limit = 20 } = {}) {
-    let jobs = keyword ? searchMockJobs(keyword) : [...MOCK_JOBS];
+  async searchJobs({ keyword = "", location = "", remoteOnly = false, page = 1, limit } = {}) {
+    const perPage = Math.min(this.maxPerPage, Math.max(1, parseInt(limit, 10) || this.defaultPerPage));
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const offset = (currentPage - 1) * perPage;
 
-    if (location) {
-      jobs = filterMockJobsByLocation(jobs, location);
-    }
-
-    const totalCount = jobs.length;
-    const totalPages = Math.ceil(totalCount / limit) || 1;
-    const start = (page - 1) * limit;
-    const pageJobs = jobs.slice(start, start + limit);
-
-    return {
-      jobs: pageJobs,
-      totalCount,
-      page,
-      resultsPerPage: limit,
-      totalPages,
+    const params = {
+      limit: perPage,
+      offset,
+      country: this.countryCode,
     };
-  }
+    if (keyword) params.title = keyword;
+    if (location) params.location = location;
+    if (remoteOnly) params.remote_only = "true";
 
-  /**
-   * List mock jobs (browsing, no keyword).
-   * No API credits consumed.
-   */
-  mockListJobs({ location = "", page = 1, limit = 20 } = {}) {
-    let jobs = [...MOCK_JOBS];
+    // Cache key must include every dimension that changes the result set.
+    const cacheKey = [
+      params.title || "",
+      params.location || "",
+      params.country,
+      params.remote_only || "",
+      perPage,
+      offset,
+    ].join("|");
 
-    if (location) {
-      jobs = filterMockJobsByLocation(jobs, location);
-    }
-
-    const totalCount = jobs.length;
-    const totalPages = Math.ceil(totalCount / limit) || 1;
-    const start = (page - 1) * limit;
-    const pageJobs = jobs.slice(start, start + limit);
-
-    return {
-      jobs: pageJobs,
-      totalCount,
-      page,
-      resultsPerPage: limit,
-      totalPages,
-    };
-  }
-
-  /**
-   * Get mock job details by URL.
-   * No API credits consumed.
-   */
-  mockGetJobDetails(jobUrl) {
-    const job = MOCK_JOBS.find((j) => j.url === jobUrl);
-    return job || null;
-  }
-
-  // ─── LIVE MODE (Parse API) ────────────────────────────────────────
-
-  normalizeStub(raw) {
-    const title = raw.title || raw.job_title || "Untitled";
-    const company = this.extractCompanyFromTitle(title);
-    return {
-      id: raw.job_id || raw.id || null,
-      title,
-      company,
-      url: raw.url || raw.job_url || null,
-    };
-  }
-
-  normalizeStubs(rawJobs) {
-    if (!Array.isArray(rawJobs)) return [];
-    return rawJobs.map((j) => this.normalizeStub(j));
-  }
-
-  extractCompanyFromTitle(title) {
-    if (!title) return "Unknown Company";
-    const match1 = title.match(/^(.+?)\s+(?:Graduate\s+&\s+Exp\.\s+)?(?:Job\s+)?Recruitment/i);
-    if (match1) return match1[1].trim();
-    const match2 = title.match(/^(.+?)\s+at\s+(.+)$/i);
-    if (match2) return match2[2].trim();
-    return title.replace(/\s*\(\d+\s+Positions?\)\s*$/i, "").trim() || "Unknown Company";
-  }
-
-  stubToJob(stub) {
-    return {
-      id: stub.id,
-      title: stub.title,
-      company: stub.company,
-      location: "",
-      description: "",
-      url: stub.url,
-      salaryMin: null,
-      salaryMax: null,
-      employmentType: null,
-      postedDate: null,
-      source: "HotNigerianJobs",
-      category: null,
-    };
-  }
-
-  normalizeJob(raw, url) {
-    let salaryMin = null;
-    let salaryMax = null;
-
-    if (raw.salary) {
-      if (typeof raw.salary === "object") {
-        salaryMin = raw.salary.min || raw.salary.minimum || null;
-        salaryMax = raw.salary.max || raw.salary.maximum || null;
-      } else if (typeof raw.salary === "string") {
-        const nums = raw.salary.replace(/[^\d]/g, " ").trim().split(/\s+/).map(Number).filter(Boolean);
-        if (nums.length >= 2) { salaryMin = nums[0]; salaryMax = nums[1]; }
-        else if (nums.length === 1) salaryMin = nums[0];
-      } else if (typeof raw.salary === "number") {
-        salaryMin = raw.salary;
-      }
-    }
-
-    let location = "Nigeria";
-    if (raw.location) {
-      if (typeof raw.location === "object") {
-        location = [raw.location.city, raw.location.region, raw.location.country]
-          .filter(Boolean).join(", ");
-      } else {
-        location = String(raw.location).replace(/\.$/, "");
-      }
-    }
-
-    let company = "Unknown Company";
-    if (raw.recruiter) {
-      company = typeof raw.recruiter === "object"
-        ? (raw.recruiter.name || "Unknown Company")
-        : String(raw.recruiter);
-    } else if (raw.company) {
-      company = typeof raw.company === "object"
-        ? (raw.company.name || "Unknown Company")
-        : String(raw.company);
-    }
-
-    return {
-      id: raw.id || raw._id || raw.job_id || raw.slug || null,
-      title: raw.title || raw.job_title || "Untitled",
-      company,
-      location,
-      description: raw.description || "",
-      url: url || raw.url || raw.job_url || null,
-      salaryMin,
-      salaryMax,
-      employmentType: raw.level || raw.employment_type || raw.type || null,
-      postedDate: raw.posted_at || raw.postedAt || raw.created_at || raw.date || null,
-      source: "HotNigerianJobs",
-      category: raw.category || raw.sector || null,
-    };
-  }
-
-  async getListStubs(page) {
-    const cacheKey = `listPage:${page}`;
     const cached = this.getCached(cacheKey);
-    if (cached) return cached;
+    if (cached) return { ...cached, cached: true };
 
-    const raw = await this.parseFetch("list_jobs", {
-      page: Math.max(0, page - 1),
-      per_page: Math.min(20, this.maxPerPage),
-    });
+    const { body, rateLimit } = await this.apiFetch(params);
 
-    const wrapper = raw.data || raw;
-    const jobs = wrapper.jobs || wrapper.results || [];
-    const stubs = this.normalizeStubs(jobs);
-    this.setCache(cacheKey, stubs);
-    return stubs;
-  }
+    const rawJobs = Array.isArray(body && body.jobs) ? body.jobs : [];
+    const total = Number.isFinite(body && body.total) ? Number(body.total) : rawJobs.length;
 
-  async liveSearchJobs({ keyword = "", location = "", page = 1, limit = 20 } = {}) {
-    let stubs;
+    const jobs = rawJobs
+      .map((j) => this.normalizeJob(j))
+      // Defence in depth for the Nigeria-only requirement: never surface a job
+      // that explicitly reports another country. Records without a country code
+      // are kept (we already asked for country=NG) rather than guessed at.
+      .filter((j) => !j.countryCode || j.countryCode === this.countryCode)
+      // Delisted postings still return 200 with status "removed".
+      .filter((j) => j.status !== "removed");
 
-    if (keyword) {
-      const cacheKey = `search:${keyword}`;
-      const cached = this.getCached(cacheKey);
-      if (cached) {
-        stubs = cached;
-      } else {
-        const raw = await this.parseFetch("search_jobs", { query: keyword });
-        const wrapper = raw.data || raw;
-        const jobs = wrapper.jobs || wrapper.results || [];
-        stubs = this.normalizeStubs(jobs);
-        this.setCache(cacheKey, stubs);
-      }
-    } else {
-      stubs = await this.getListStubs(page);
-    }
+    const result = {
+      jobs,
+      totalCount: total,
+      page: currentPage,
+      resultsPerPage: perPage,
+      totalPages: Math.max(1, Math.ceil(total / perPage)),
+    };
 
-    const totalCount = stubs.length;
-    const totalPages = Math.ceil(totalCount / limit) || 1;
-    const start = (page - 1) * limit;
-    const pageStubs = stubs.slice(start, start + limit);
-    const jobs = pageStubs.map((s) => this.stubToJob(s));
-
-    return { jobs, totalCount, page, resultsPerPage: limit, totalPages };
-  }
-
-  async liveListJobs({ location = "", page = 1, limit = 20 } = {}) {
-    const stubs = await this.getListStubs(page);
-    const totalCount = stubs.length;
-    const totalPages = Math.ceil(totalCount / limit) || 1;
-    const jobs = stubs.map((s) => this.stubToJob(s));
-    return { jobs, totalCount, page, resultsPerPage: limit, totalPages };
-  }
-
-  async liveGetJobDetails(jobUrl) {
-    if (!jobUrl) return null;
-    const cacheKey = `detail:${jobUrl}`;
-    const cached = this.getCached(cacheKey, this.detailCacheTTL);
-    if (cached) return cached;
-
-    const raw = await this.parseFetch("get_job_details", { url: jobUrl });
-    const rawJob = raw.data || raw.job || raw;
-    const enriched = this.normalizeJob(rawJob, jobUrl);
-    this.setCache(cacheKey, enriched);
-    return enriched;
-  }
-
-  // ─── UNIFIED INTERFACE ─────────────────────────────────────────────
-
-  /**
-   * Search jobs by keyword and/or location.
-   * Uses mock data when USE_MOCK_DATA=true or API unavailable.
-   */
-  async searchJobs(params = {}) {
-    if (this.useMock) {
-      return this.mockSearchJobs(params);
-    }
-
-    try {
-      return await this.liveSearchJobs(params);
-    } catch (err) {
-      console.warn(`[JobService] Live search failed (${err.message}), falling back to mock data`);
-      return this.mockSearchJobs(params);
-    }
-  }
-
-  /**
-   * List recent jobs (browsing).
-   * Uses mock data when USE_MOCK_DATA=true or API unavailable.
-   */
-  async listJobs(params = {}) {
-    if (this.useMock) {
-      return this.mockListJobs(params);
-    }
-
-    try {
-      return await this.liveListJobs(params);
-    } catch (err) {
-      console.warn(`[JobService] Live list failed (${err.message}), falling back to mock data`);
-      return this.mockListJobs(params);
-    }
-  }
-
-  /**
-   * Get full job details on-demand.
-   * Uses mock data when USE_MOCK_DATA=true or API unavailable.
-   */
-  async getJobDetails(jobUrl) {
-    if (this.useMock) {
-      return this.mockGetJobDetails(jobUrl);
-    }
-
-    try {
-      return await this.liveGetJobDetails(jobUrl);
-    } catch (err) {
-      console.warn(`[JobService] Live detail failed (${err.message}), falling back to mock data`);
-      return this.mockGetJobDetails(jobUrl);
-    }
+    this.setCache(cacheKey, result);
+    return { ...result, cached: false, rateLimit };
   }
 }
 
 module.exports = new JobService();
+module.exports.JobListingError = JobListingError;

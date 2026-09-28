@@ -1,0 +1,75 @@
+# Morine -- Render deployment configuration
+#
+# Architecture: GitHub -> Render Web Service -> Express -> MongoDB Atlas /
+# Gemini / Job Listings API.
+#
+# Morine is SINGLE-ORIGIN. A single Express process serves the frontend, the
+# /api/* routes and all static assets from one host, so there is no separate
+# frontend service, no proxy and no cross-site cookie/CORS handling anywhere.
+#
+# How to use: push render.yaml to the default branch, then in the Render
+# dashboard choose "New +" -> "Blueprint" and select this repository. Render
+# reads this file, creates the service, and PROMPTS for the values of every
+# `sync: false` secret. No secret values are stored in this file or in git.
+#
+# PORT is intentionally NOT declared. Render injects PORT itself, and
+# server.js already reads `process.env.PORT || 3000`, so production binds to
+# the injected port while local development stays on 3000.
+
+services:
+  - type: web
+    name: morine
+    runtime: node
+    plan: starter          # a paid plan; the free tier sleeps and has slow cold starts
+    region: oregon         # closest MongoDB Atlas region to the developers
+    branch: main
+
+    # The whole application lives in this repository: Express in backend/,
+    # the frontend (index.html, app.html, js/, css/, privacy/terms) at the root.
+    rootDir: backend
+
+    buildCommand: npm ci
+    startCommand: npm start
+
+    # /api/health is already routed in backend/server.js and is unauthenticated.
+    healthCheckPath: /api/health
+
+    # Graceful shutdown: server.js handles SIGTERM, stops accepting
+    # connections, drains, then closes the MongoDB pool.
+    autoDeploy: true
+
+    envVars:
+      # --- Application mode -------------------------------------------------
+      - key: NODE_ENV
+        value: production
+
+      # --- Required secrets (Render prompts; never committed) ---------------
+      - key: MONGODB_URI
+        sync: false        # Atlas connection string (scheme included)
+
+      - key: JWT_SECRET
+        sync: false        # signs access + refresh tokens
+
+      - key: JOB_LISTING_API_KEY
+        sync: false        # Job Listings API (X-API-Key, server-side only)
+
+      - key: GEMINI_API_KEY
+        sync: false        # Gemini AI provider
+
+      # --- Optional configuration ------------------------------------------
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 30m
+
+      # JWT_ACCESS_SECRET / JWT_REFRESH_SECRET are deliberately not declared:
+      # auth middleware falls back to JWT_SECRET when they are absent, and
+      # omitting them keeps the Blueprint prompt list to the values that are
+      # genuinely required.
+
+      # FRONTEND_URL is intentionally NOT set. Morine is same-origin, so no
+      # CORS is required and none is mounted when this variable is absent.
+      # Only set it if a genuinely separate, deliberate extra origin ever needs
+      # to be allow-listed.

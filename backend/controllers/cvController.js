@@ -98,4 +98,23 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { upload, list, getOne, analyze, optimize, remove };
+async function update(req, res) {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    const cv = await CV.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+
+    const { jobDescription } = req.body;
+    if (jobDescription !== undefined) {
+      cv.jobDescription = String(jobDescription).slice(0, 10000);
+      await cv.save();
+    }
+
+    return res.json({ success: true, data: { cv } });
+  } catch (e) {
+    const code = e.statusCode || 500;
+    return res.status(code).json({ success: false, error: e.message || "Update failed.", code: e.code || undefined });
+  }
+}
+
+module.exports = { upload, list, getOne, analyze, optimize, remove, update };

@@ -1,5 +1,18 @@
 const CareerProfile = require("../models/CareerProfile");
 
+// Fields a user is allowed to clear individually. Anything outside this list is
+// rejected rather than passed through to Mongo.
+const REMOVABLE_FIELDS = [
+  "education",
+  "skills",
+  "experience",
+  "projects",
+  "goals",
+  "targetRole",
+  "location",
+  "salaryExpectation",
+];
+
 class ProfileController {
   /**
    * GET /api/profile
@@ -77,6 +90,101 @@ class ProfileController {
       return res.status(500).json({
         success: false,
         error: "Unable to update profile. Please try again.",
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/profile/fields/:field
+   *
+   * Clears one piece of profile information. The document is always looked up
+   * by the authenticated user's id, so a user can only ever edit their own
+   * profile and cannot clear another account's data. Every other field is left
+   * exactly as it was.
+   */
+  async deleteField(req, res) {
+    try {
+      const field = String(req.params.field || "").trim();
+      if (!REMOVABLE_FIELDS.includes(field)) {
+        return res.status(400).json({
+          success: false,
+          error: "That profile field cannot be removed.",
+        });
+      }
+
+      const empty = field === "skills" ? [] : "";
+      const profile = await CareerProfile.findOneAndUpdate(
+        { userId: req.user._id },
+        { $set: { [field]: empty } },
+        { new: true, runValidators: true }
+      );
+
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: "Profile not found.",
+        });
+      }
+
+      return res.json({ success: true, data: { profile } });
+    } catch (error) {
+      console.error("[Profile] Delete field error:", error.message);
+      return res.status(500).json({
+        success: false,
+        error: "Unable to remove that information. Please try again.",
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/profile/skills/:skill
+   *
+   * Removes a single skill without touching the rest of the profile. Matched
+   * case-insensitively against the authenticated user's own skill list.
+   */
+  async removeSkill(req, res) {
+    try {
+      const skill = String(req.params.skill || "").trim();
+      if (!skill) {
+        return res.status(400).json({
+          success: false,
+          error: "A skill name is required.",
+        });
+      }
+      if (skill.length > 100) {
+        return res.status(400).json({
+          success: false,
+          error: "That skill name is too long.",
+        });
+      }
+
+      const profile = await CareerProfile.findOne({ userId: req.user._id });
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: "Profile not found.",
+        });
+      }
+
+      const wanted = skill.toLowerCase();
+      const before = profile.skills.length;
+      profile.skills = profile.skills.filter(
+        (s) => String(s).trim().toLowerCase() !== wanted
+      );
+      if (profile.skills.length === before) {
+        return res.status(404).json({
+          success: false,
+          error: "That skill was not in your profile.",
+        });
+      }
+
+      await profile.save();
+      return res.json({ success: true, data: { profile } });
+    } catch (error) {
+      console.error("[Profile] Remove skill error:", error.message);
+      return res.status(500).json({
+        success: false,
+        error: "Unable to remove that skill. Please try again.",
       });
     }
   }

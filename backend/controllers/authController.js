@@ -10,23 +10,53 @@ const {
 const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+/* Cookie policy.
+ *
+ * Morine is a SINGLE-ORIGIN application. GitHub -> Render Web Service -> the
+ * single Express process, which serves BOTH the frontend and every /api/* route
+ * from the same host. There is no separate frontend host and no proxy, so the
+ * browser's request to /api/auth/refresh is same-origin.
+ *
+ *   Production (https://<service>.onrender.com)
+ *     SameSite=Lax + Secure + HttpOnly. Because the request is same-origin,
+ *     SameSite is not a restriction here at all -- Lax still allows the cookie
+ *     to be sent, and it keeps the cookie protected as a defence-in-depth
+ *     measure if the app is ever reached cross-site (an embedded link, a
+ *     top-level navigation from another site). SameSite=None would be a
+ *     DOWNGRADE here: it is the only value that permits cross-site sending, and
+ *     it is unnecessary when the API is on the same origin. Secure is required
+ *     because Render terminates TLS in front of the process.
+ *
+ *   Development (http://localhost:3000)
+ *     Identical attributes except Secure is dropped, because browsers refuse to
+ *     store a Secure cookie delivered over plain HTTP. Localhost is a secure
+ *     context for SameSite purposes, so Lax still works over http.
+ *
+ * The option object is built in ONE place and reused by both the setter and
+ * the clearer. A cookie can only be deleted if the clearing request repeats the
+ * original Path / SameSite / Secure attributes exactly, so sharing this
+ * function is what guarantees sign-out actually removes the cookie.
+ */
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+function refreshCookieOptions(extra) {
+  return Object.assign(
+    {
+      httpOnly: true,
+      path: "/api/auth/refresh",
+      sameSite: "lax",
+      secure: IS_PRODUCTION,
+    },
+    extra || {}
+  );
+}
+
 function setRefreshCookie(res, rawToken) {
-  res.cookie(REFRESH_COOKIE_NAME, rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/auth/refresh",
-    maxAge: REFRESH_MAX_AGE,
-  });
+  res.cookie(REFRESH_COOKIE_NAME, rawToken, refreshCookieOptions({ maxAge: REFRESH_MAX_AGE }));
 }
 
 function clearRefreshCookie(res) {
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/auth/refresh",
-  });
+  res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions());
   // Clear legacy cookie if exists
   res.clearCookie("token");
 }

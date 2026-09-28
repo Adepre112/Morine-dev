@@ -19,7 +19,7 @@ const jobMatchSchema = new mongoose.Schema(
     reasons: { type: [String], default: [] },
     recommendations: { type: [String], default: [] },
     summary: { type: String, default: "" },
-    source: { type: String, default: "HotNigerianJobs" },
+    source: { type: String, default: "Job Listings API" },
   },
   { timestamps: true }
 );

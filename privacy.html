@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy — Morine</title>
+<meta name="description" content="How Morine handles the information you enter, based on what the application actually does." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23705cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 8v2.2M16 21.3v2.2' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 64px 24px 90px; }
+  .legal__back { display: inline-flex; align-items: center; gap: 8px; color: var(--text-mute); text-decoration: none; font-size: .88rem; margin-bottom: 32px; }
+  .legal__back:hover { color: var(--text); }
+  .legal h1 { font-family: var(--font-display); font-size: clamp(1.9rem, 5vw, 2.6rem); line-height: 1.15; margin-bottom: 12px; }
+  .legal__updated { color: var(--text-mute); font-size: .84rem; margin-bottom: 34px; }
+  .legal h2 { font-family: var(--font-display); font-size: 1.1rem; margin: 32px 0 10px; color: var(--text); }
+  .legal p, .legal li { color: var(--text-dim); line-height: 1.7; font-size: .95rem; }
+  .legal ul { padding-left: 20px; display: grid; gap: 8px; }
+  .legal__note { margin-top: 36px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-size: .88rem; color: var(--text-mute); }
+</style>
+</head>
+<body>
+<main class="legal">
+  <a class="legal__back" href="/">&larr; Back to Morine</a>
+
+  <h1>Privacy</h1>
+  <p class="legal__updated">This page describes what Morine actually does with your information.</p>
+
+  <h2>Information you provide</h2>
+  <p>When you create an account, Morine stores the email address and password you supply. The password is hashed before storage; Morine does not keep your plain-text password. You can also add career information to your Profile, upload a CV, and save analyses you generate. This information is stored in the application's database so it stays available when you sign in again.</p>
+
+  <h2>How your information is used</h2>
+  <ul>
+    <li>Career information you enter in Profile, along with an uploaded CV and any analyses you have generated, is sent to the configured AI provider when you request an analysis, so results are based on your own data.</li>
+    <li>Your information is used to generate the outputs shown to you: CV analysis and optimization, skill gap analysis, job matching, career paths, interview preparation and AI Career Profile insights.</li>
+    <li>AI features are instructed not to invent qualifications, experience, employers, certifications or skills you have not supplied. If data is missing, the feature is expected to say so rather than assume.</li>
+  </ul>
+
+  <h2>Account session</h2>
+  <p>To keep you signed in, Morine stores a session token in your browser's local storage and a refresh token in an HTTP-only cookie. The HTTP-only cookie cannot be read by scripts running on the page. The refresh cookie is set to expire after 30 days, is marked secure on production deployments, and is restricted to same-site requests.</p>
+
+  <h2>Job listings</h2>
+  <p>When you use Opportunities, Morine requests job listing data from the job listings API configured on the server. Morine is configured to return listings for Nigeria. The API key for that service is kept on the server and is never sent to the browser.</p>
+
+  <h2>What is not collected</h2>
+  <p>Morine does not collect payment details, and the application does not include advertising or third-party tracking scripts.</p>
+
+  <h2>Editing or removing your data</h2>
+  <p>You can add, edit and remove your Profile entries at any time, and you can delete saved CVs, skill gap analyses, saved career paths and generated documents from the corresponding screens. Removing information and then requesting an AI analysis means that analysis can no longer use it.</p>
+
+  <p class="legal__note">This page is informational and describes the current behaviour of this application. It is not legal advice.</p>
+</main>
+</body>
+</html>

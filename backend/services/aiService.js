@@ -109,9 +109,15 @@ function extractGeminiText(result) {
 
 function mapGeminiError(e) {
   if (e && e.statusCode && e.code) throw e;
-  const status = (typeof e?.statusCode === "number" && e.statusCode) || (typeof e?.status === "number" && e.status) || 0;
+  let status = (typeof e?.statusCode === "number" && e.statusCode) || (typeof e?.status === "number" && e.status) || 0;
   const cls = (e && e.constructor && e.constructor.name) || "";
   const msg = String(e?.message || "").toLowerCase();
+  // Parse @google/genai ApiError message which is a JSON string like {"error":{"code":404,...}}
+  let parsedError = null;
+  try { parsedError = JSON.parse(msg); } catch {}
+  if (parsedError && parsedError.error && typeof parsedError.error.code === "number") {
+    status = parsedError.error.code;
+  }
 
   if (status >= 400 && status < 500) {
     const isAuth =
@@ -122,7 +128,8 @@ function mapGeminiError(e) {
       msg.includes("permission denied") ||
       msg.includes("invalid_api_key");
     const isModelInvalid =
-      cls.includes("NotFound") && msg.includes("model") && msg.includes("not found");
+      (cls.includes("NotFound") && msg.includes("model") && msg.includes("not found")) ||
+      (typeof parsedCode === "number" && parsedCode === 404 && msg.includes("model"));
     if (isAuth) {
       const err = new Error("AI service authentication failed. Please contact support.");
       err.statusCode = 503;
@@ -163,7 +170,7 @@ function mapGeminiError(e) {
     err.code = "AI_UNAVAILABLE";
     throw err;
   }
-  // Fallback for raw SDK/network errors (e.g. DNS "fetch failed") — never leak provider details.
+// Fallback for raw SDK/network errors (e.g. DNS "fetch failed") — never leak provider details.
   const err = new Error("AI service is temporarily unavailable. Please try again later.");
   err.statusCode = 502;
   err.code = "AI_UNAVAILABLE";
@@ -291,6 +298,11 @@ function mapOpenAIError(e) {
   const rawCode = e?.code || e?.error?.code || "";
   const rawType = e?.error?.type || e?.type || "";
   const rawMessage = (e?.error?.message || e?.message || "").toLowerCase();
+  // Parse @google/genai ApiError message which is a JSON string like {"error":{"code":404,...}}
+  let parsedError = null;
+  try { parsedError = JSON.parse(rawMessage); } catch {}
+  const parsedCode = parsedError && parsedError.error && parsedError.error.code;
+  const effectiveStatus = status || (typeof parsedCode === "number" ? parsedCode : 0);
 
   const isQuota =
     rawCode === "insufficient_quota" ||
@@ -301,7 +313,7 @@ function mapOpenAIError(e) {
     rawMessage.includes("billing") ||
     rawMessage.includes("quota");
 
-  if (status === 429 && isQuota) {
+  if (effectiveStatus === 429 && isQuota) {
     const err = new Error(
       "AI analysis is temporarily unavailable because the AI service has reached its usage limit. Your CV was uploaded successfully. Please try again later."
     );
@@ -309,22 +321,22 @@ function mapOpenAIError(e) {
     err.code = "AI_QUOTA_EXHAUSTED";
     throw err;
   }
-  if (status === 429) {
+  if (effectiveStatus === 429) {
     const err = new Error("AI service is temporarily rate-limited. Please try again in a moment.");
     err.statusCode = 429;
     err.code = "AI_RATE_LIMITED";
     throw err;
   }
-  if (status === 401 || rawCode === "invalid_api_key" || rawType === "invalid_request_error" && rawMessage.includes("api key")) {
+  if (effectiveStatus === 401 || rawCode === "invalid_api_key" || rawType === "invalid_request_error" && rawMessage.includes("api key")) {
     const err = new Error("AI service authentication failed. Please contact support.");
     err.statusCode = 503;
     err.code = "AI_AUTH_FAILED";
     throw err;
   }
   // Generic OpenAI failure - hide raw details
-  if (status) {
+  if (effectiveStatus) {
     const err = new Error("AI service is temporarily unavailable. Please try again later.");
-    err.statusCode = status >= 500 ? 502 : status;
+    err.statusCode = effectiveStatus >= 500 ? 502 : effectiveStatus;
     err.code = "AI_UNAVAILABLE";
     throw err;
   }
@@ -384,7 +396,27 @@ async function optimizeCV(cvText, analysis, jobDescription) {
   const client = getOpenAI();
   const model = getModel();
 
-  const prompt = `Rewrite this CV to be stronger based on the analysis. Keep all facts truthful — do not invent experience, degrees, or achievements. Improve phrasing to active voice, add achievement framing, improve ATS-oriented formatting using the recommendations.
+  const prompt = `Rewrite this CV to be stronger based on the analysis.
+
+ABSOLUTE FIDELITY RULES — these override every stylistic instinct and every example you have ever seen of a CV:
+1. Use ONLY information that is explicitly written in the CV TEXT below, or explicitly supplied in the JOB DESCRIPTION or ANALYSIS. Nothing else is a permitted source.
+2. NEVER invent, assume, infer, guess, complete or fabricate any of the following:
+   - names, phone numbers, email addresses, or any contact detail
+   - LinkedIn URLs, GitHub URLs, portfolio URLs, or ANY other link/URL
+   - schools, degrees, fields of study, or graduation years
+   - certifications, licences or course names
+   - employers, company names, job titles or designations
+   - dates, years of experience or durations
+   - skills, tools or technologies
+   - achievements, responsibilities or projects
+   - metrics, percentages or numbers
+   - locations, addresses or country/city names
+3. Do NOT use placeholder values. Never output things like "linkedin.com/in/yourname", "github.com/yourname", "yourportfolio.com", "[Add education here]", "N/A", "TBD", "XXXX", or any bracketed/fill-in-the-blank marker.
+4. Output ONLY the sections that actually exist in the CV TEXT, using the SAME section names the source CV uses. If the source CV has no education, certifications, projects, summary or contact block, OMIT that section entirely — do not create it, do not add an empty one, and do not add a generic one. Never add a section just because CVs usually have it.
+5. If a fact is missing or uncertain, leave it out. Omission is always correct; guessing is always wrong.
+6. You MAY rewrite and reorder existing content, improve grammar, convert to active voice, tighten wording, improve structure/formatting and ATS readability, and keep every original heading and every original fact intact.
+7. You MAY rewrite an existing bullet point, but you must preserve its original meaning and must not attach any number, metric or outcome that the original bullet did not state. If the original bullet has no metric, the rewritten bullet must have no metric.
+8. Keep the candidate's original name and contact details exactly as written, character for character. Do not correct, expand, translate or reformat them.
 
 CV TEXT:
 ${cvText.slice(0, 12000)}
@@ -392,9 +424,9 @@ ${cvText.slice(0, 12000)}
 ANALYSIS:
 ${JSON.stringify(analysis).slice(0, 6000)}
 
-${jobDescription ? `JOB DESCRIPTION:\n${jobDescription.slice(0, 6000)}` : ""}
+${jobDescription ? `JOB DESCRIPTION (use only to guide wording and keyword choice, never as a source of candidate facts):\n${jobDescription.slice(0, 6000)}` : ""}
 
-Return ONLY the optimized CV as plain text with clear section headings (PROFILE, EXPERIENCE, EDUCATION, SKILLS, etc.). Do not add commentary outside the CV.`;
+Return ONLY the optimized CV as plain text. Reproduce only sections and facts that exist in the CV TEXT above. Do not add commentary, notes, brackets or explanations outside the CV.`;
 
   let completion;
   try {
@@ -402,7 +434,10 @@ Return ONLY the optimized CV as plain text with clear section headings (PROFILE,
       model,
       temperature: 0.4,
       messages: [
-        { role: "system", content: "You are a CV optimization assistant. Return only the optimized CV text." },
+        {
+          role: "system",
+          content: "You are a CV optimization assistant. You improve wording, structure, formatting and ATS compatibility while preserving factual accuracy with absolute strictness. You use ONLY facts explicitly present in the candidate's CV. You never invent, infer, complete or placeholder any name, contact detail, URL, link, school, degree, certification, employer, job title, date, duration, skill, achievement, metric, number or location. You never output an example or sample URL. If a section or fact is absent from the source CV, you omit it rather than inventing it. You never add a generic or placeholder section. You return only the optimized CV text and nothing else."
+        },
         { role: "user", content: prompt },
       ],
       max_tokens: 3500,
@@ -869,4 +904,165 @@ async function analyzeInterviewPreparation(input){
  };
 }
 
-module.exports = { analyzeCV, optimizeCV, analyzeSkillGap, analyzeJobMatch, analyzeCareerPath, analyzeInterviewPreparation };
+const CAREER_PROFILE_SCHEMA_HINT = `Return ONLY valid JSON with this exact structure:
+{
+  "headline": string (one line, the candidate's career identity),
+  "summary": string (2-4 sentences interpreting the provided data),
+  "coreStrengths": [{"title": string, "evidence": string}],
+  "careerAreas": string[],
+  "transferableSkills": string[],
+  "potentialRoles": [{"title": string, "reason": string}],
+  "developmentAreas": [{"area": string, "reason": string}],
+  "positioning": string,
+  "dataGaps": string[],
+  "basedOn": string[] (list the data sources actually used)
+}`;
+
+function buildCareerProfilePrompt({ profile, cvText, cvAnalysis, skillGap, careerPath, jobMatches }) {
+  const profileBlock = profile ? `CAREER PROFILE (user-provided facts):
+- targetRole: ${profile.targetRole || "n/a"}
+- education: ${(profile.education || "").slice(0, 1200) || "n/a"}
+- skills: ${(profile.skills || []).join(", ") || "n/a"}
+- experience: ${(profile.experience || "").slice(0, 1500) || "n/a"}
+- projects: ${(profile.projects || "").slice(0, 1200) || "n/a"}
+- goals: ${(profile.goals || "").slice(0, 800) || "n/a"}
+- location: ${profile.location || "n/a"}
+- salaryExpectation: ${profile.salaryExpectation || "n/a"}` : "CAREER PROFILE: not provided";
+  const cvBlock = cvText ? `CV EXTRACTED TEXT (user-provided facts):\n${cvText.slice(0, 5000)}${cvAnalysis ? `\nCV ANALYSIS: ${JSON.stringify(cvAnalysis).slice(0, 2000)}` : ""}` : "CV: not provided";
+  const skillGapBlock = skillGap ? `LATEST SKILL-GAP ANALYSIS (targetRole:${skillGap.targetRole}, readiness:${skillGap.overallReadiness}%):
+- currentSkills: ${(skillGap.currentSkills || []).join(", ")}
+- skillGaps: ${JSON.stringify((skillGap.skillGaps || []).slice(0, 6))}
+- summary: ${skillGap.summary || "n/a"}` : "SKILL-GAP: not provided";
+  const careerPathBlock = careerPath ? `LATEST CAREER PATH (AI-generated, targetRole:${careerPath.targetRole}, readiness:${careerPath.readiness}%):
+- summary: ${(careerPath.summary || "").slice(0, 600)}
+- stages: ${JSON.stringify((careerPath.stages || []).map(s => ({ title: s.title, skills: s.skills })).slice(0, 6))}
+- currentSkills: ${(careerPath.currentSkills || []).join(", ")}` : "CAREER PATH: not provided";
+  const jobMatchBlock = jobMatches && jobMatches.length ? `RECENT JOB MATCHES (recurring market requirements):
+${jobMatches.slice(0, 5).map(j => `- ${j.jobTitle} @ ${j.company}: matching [${(j.matchingSkills || []).join(", ")}] missing [${(j.missingSkills || []).join(", ")}]`).join("\n")}` : "JOB MATCHES: none";
+  return `You are a career intelligence analyst for Nigerian job seekers. Produce an AI interpretation of the candidate's career profile using ONLY the data provided below.
+
+${profileBlock}
+
+${cvBlock}
+
+${skillGapBlock}
+
+${careerPathBlock}
+
+${jobMatchBlock}
+
+${CAREER_PROFILE_SCHEMA_HINT}
+
+STRICT RULES:
+- This is an AI INTERPRETATION, not a record of fact. Everything you output is an inference drawn from the data above.
+- NEVER invent qualifications, degrees, certifications, years of experience, employers, projects, skills, achievements, or any other personal fact. If it is not in the data above, it does not exist for this candidate.
+- Every entry in coreStrengths MUST include an "evidence" field that quotes or directly points to the specific provided data that supports it. If you cannot cite evidence, do not list the strength.
+- transferableSkills must be traceable to provided experience, projects, education or CV text.
+- developmentAreas must be grounded in an actual missing or weak signal in the data (e.g. a skill absent from the profile that recurs in jobMatches).
+- potentialRoles are suggestions grounded in the provided skills/education/experience, not job offers and not guarantees.
+- Use dataGaps to explicitly state what is missing or could not be assessed (e.g. "No work history provided, so years of experience could not be assessed").
+- Do not promise employment, salary, or interview success. Do not claim certifications or compliance the data does not show.
+- Be concise, practical, and honest. Nigerian context aware.`;
+
+  }
+
+async function generateCareerProfile(input) {
+  const client = getOpenAI();
+  const model = getModel();
+  const prompt = buildCareerProfilePrompt(input);
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You are a career intelligence analyst. Return only JSON. You interpret provided data and must never invent personal facts about the candidate." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 3000,
+    });
+  } catch (e) {
+    try { mapOpenAIError(e); } catch (mapped) {
+      if (mapped.code === "AI_QUOTA_EXHAUSTED") {
+        const err = new Error("AI Career Profile is temporarily unavailable because the AI service has reached its usage limit. Your Profile and saved career data are still safe.");
+        err.statusCode = 503;
+        err.code = "AI_QUOTA_EXHAUSTED";
+        throw err;
+      }
+      throw mapped;
+    }
+  }
+  const raw = completion.choices[0]?.message?.content || "{}";
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { const err = new Error("AI returned invalid JSON. Please retry."); err.statusCode = 502; throw err; }
+  const str = v => String(v == null ? "" : v);
+  return {
+    headline: str(parsed.headline),
+    summary: str(parsed.summary),
+    coreStrengths: Array.isArray(parsed.coreStrengths)
+      ? parsed.coreStrengths.map(s => ({ title: str(s && s.title), evidence: str(s && s.evidence) })).filter(s => s.title && s.evidence)
+      : [],
+    careerAreas: Array.isArray(parsed.careerAreas) ? parsed.careerAreas.map(str).filter(Boolean) : [],
+    transferableSkills: Array.isArray(parsed.transferableSkills) ? parsed.transferableSkills.map(str).filter(Boolean) : [],
+    potentialRoles: Array.isArray(parsed.potentialRoles)
+      ? parsed.potentialRoles.map(r => ({ title: str(r && r.title), reason: str(r && r.reason) })).filter(r => r.title)
+      : [],
+    developmentAreas: Array.isArray(parsed.developmentAreas)
+      ? parsed.developmentAreas.map(d => ({ area: str(d && d.area), reason: str(d && d.reason) })).filter(d => d.area)
+      : [],
+    positioning: str(parsed.positioning),
+    dataGaps: Array.isArray(parsed.dataGaps) ? parsed.dataGaps.map(str).filter(Boolean) : [],
+    basedOn: Array.isArray(parsed.basedOn) ? parsed.basedOn.map(str).filter(Boolean) : [],
+    _model: model,
+  };
+}
+
+module.exports = { analyzeCV, optimizeCV, analyzeSkillGap, analyzeJobMatch, analyzeCareerPath, generateCareerProfile, analyzeInterviewPreparation, chat };
+
+async function chat(messages, profile) {
+  const client = getOpenAI();
+  const model = getModel();
+
+  const profileBlock = profile
+    ? `USER PROFILE (context only — do not invent beyond it):
+- targetRole: ${profile.targetRole || "not set"}
+- skills: ${(profile.skills || []).join(", ") || "not set"}
+- experience: ${(profile.experience || "").slice(0, 800) || "not set"}
+- education: ${(profile.education || "").slice(0, 500) || "not set"}
+- projects: ${(profile.projects || "").slice(0, 500) || "not set"}
+- goals: ${(profile.goals || "").slice(0, 400) || "not set"}`
+    : "USER PROFILE: not on file — answer generally.";
+
+  const system = `You are Morine, a concise, practical career AI co-pilot for job seekers. Answer job-search, skill, CV, interview and career-path questions. Be helpful and grounded; when unsure what the user has actually done, ask rather than invent. Keep replies scannable (short sections/bullets), maximum ~250 words, Nigerian job-market aware.
+
+${profileBlock}`;
+
+  const history = Array.isArray(messages)
+    ? messages.slice(-10).map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content || "").slice(0, 2000),
+      })).filter((m) => m.content && m.content.trim())
+    : [];
+
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.5,
+      messages: [{ role: "system", content: system }, ...history],
+      max_tokens: 900,
+    });
+  } catch (e) {
+    mapOpenAIError(e);
+  }
+
+  const reply = (completion?.choices?.[0]?.message?.content || "").trim();
+  if (!reply) {
+    const err = new Error("Career AI returned an empty response. Please retry.");
+    err.statusCode = 502;
+    err.code = "AI_EMPTY_RESPONSE";
+    throw err;
+  }
+  return { reply };
+}

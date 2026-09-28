@@ -37,3 +37,29 @@ backend/server_out.log
 
 # Ensure backend/.env is ignored
 backend/.env
+
+# ── Local audit / verification scripts ──────────────────────────────────────
+# One-off helpers written at the repository root while auditing. They are not
+# part of the application, they reference absolute local paths, and
+# backend/server.js already returns 404 for them at runtime. Keep them out of
+# git without deleting them.
+verify.js
+verify_dom.js
+final_check.js
+check_*.js
+audit_*.js
+*_audit.js
+
+# Generated test fixtures (uploads used to exercise the CV endpoints)
+backend/test-*.pdf
+backend/uploads/
+backend/temp/
+backend/tmp/
+*.tmp
+*.bak
+*.orig
+
+# Render's deploy config is intentionally COMMITTED - it is required for the
+# Blueprint and contains no secret values (secrets are declared sync:false).
+# Listed here only as a guard against a broad future pattern swallowing it.
+!render.yaml

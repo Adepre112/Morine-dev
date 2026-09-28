@@ -34,6 +34,7 @@ router.use(authMiddleware);
 router.post("/upload", upload.single("cv"), handleMulterError, (req, res) => cvController.upload(req, res));
 router.get("/", (req, res) => cvController.list(req, res));
 router.get("/:id", (req, res) => cvController.getOne(req, res));
+router.put("/:id", (req, res) => cvController.update(req, res));
 router.post("/:id/analyze", (req, res) => cvController.analyze(req, res));
 router.post("/:id/optimize", (req, res) => cvController.optimize(req, res));
 router.delete("/:id", (req, res) => cvController.remove(req, res));

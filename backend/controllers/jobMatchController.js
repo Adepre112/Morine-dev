@@ -58,6 +58,8 @@ async function analyze(req, res) {
       description: (job.description || "").toString().slice(0, 8000),
       requirements: Array.isArray(job.requirements) ? job.requirements.map(String).slice(0, 20) : [],
       id: (job.id || job._id || "").toString().slice(0, 100),
+      // Real ATS/source reported by the job provider, when supplied.
+      source: (job.source || "").toString().slice(0, 100),
     };
     if (!jobInfo.description && !jobInfo.requirements.length) {
       // Allow but note unavailable
@@ -78,7 +80,7 @@ async function analyze(req, res) {
       reasons: result.reasons,
       recommendations: result.recommendations,
       summary: result.summary,
-      source: "HotNigerianJobs",
+      source: jobInfo.source || "Job Listings API",
     });
 
     return res.status(201).json({ success: true, data: { match: doc, analysis: result } });

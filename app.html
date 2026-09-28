@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>document.documentElement.classList.add("js");</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Morine App — Your Career Workspace</title>
+  <meta name="description" content="Morine — your AI career workspace. Overview, opportunities, CV optimizer, skill-gap analysis, career AI and your career profile." />
+  <!--
+    API Base URL.
+    Morine is a SINGLE-ORIGIN app: one Render Web Service runs Express, which
+    serves the frontend and the API from the same origin. Every /api/* call is
+    therefore a same-origin relative request and needs no base URL at all, so
+    this tag stays EMPTY for both production and local development.
+
+    Leave it empty. A per-browser override remains available via
+    localStorage["morine_api_base"] in js/config.js if you ever need to point a
+    local copy at a remote backend.
+    It is read by js/config.js, which runs before js/app.js.
+  -->
+  <meta name="api-base-url" content="" />
+
+  <!-- Progressive Web App / installable app -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#080c1b" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Morine" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23705cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 8v2.2M16 21.3v2.2' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="app-body">
+
+  <div class="app" id="app">
+
+    <!-- ======= Sidebar (desktop) ======= -->
+    <aside class="app-side" id="appSide">
+      <a href="/" class="brand app-brand" aria-label="Morine home — go back to the website">
+        <span class="brand__mark">
+          <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+            <defs><linearGradient id="gsb" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+            </linearGradient></defs>
+            <rect width="32" height="32" rx="8" fill="url(#gsb)"/>
+            <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand__name">Morine</span>
+      </a>
+      <span class="app-side__label">Workspace</span>
+
+      <nav class="app-side__nav" aria-label="Workspace">
+        <a href="#/profile" class="app-nav" data-nav="profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+          Profile
+        </a>
+        <a href="#/overview" class="app-nav" data-nav="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          Overview
+        </a>
+        <a href="#/opportunities" class="app-nav" data-nav="jobs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M2 12h20"/></svg>
+          Opportunities
+        </a>
+        <a href="#/cv" class="app-nav" data-nav="cv">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
+          CV Optimizer
+        </a>
+        <a href="#/skills" class="app-nav" data-nav="skills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          Skill Gap Analysis
+        </a>
+        <a href="#/ai-profile" class="app-nav" data-nav="ai-profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="8" r="3.8"/><path d="M3.5 20.5c0-3.6 3.2-6 7-6 1.1 0 2.1.2 3 .5"/><path d="M18.6 2.6l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+          AI Career Profile
+        </a>
+        <a href="#/career-path" class="app-nav" data-nav="career-path">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h4v-6h4V9h4V5h5"/><path d="M17 2l3 3-3 3"/></svg>
+          Career Path Discovery
+        </a>
+        <a href="#/interview" class="app-nav" data-nav="interview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Interview Preparation
+        </a>
+        <a href="#/ai" class="app-nav" data-nav="ai">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+          AI Assistant
+        </a>
+      </nav>
+
+      <span class="app-side__label">Site</span>
+      <a href="/" class="app-nav app-nav--home" aria-label="Back to the Morine homepage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Back to Home
+      </a>
+
+      <div class="app-side__user" id="sideUser"></div>
+    </aside>
+
+    <!-- ======= Main region ======= -->
+    <div class="app-main">
+      <header class="app-top" id="appTop">
+        <button class="app-top__menu" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <a href="/" class="brand app-top__brand" aria-label="Morine home — go back to the website">
+          <span class="brand__mark brand__mark--sm">
+            <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+              <defs><linearGradient id="gtb" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+              </linearGradient></defs>
+              <rect width="32" height="32" rx="8" fill="url(#gtb)"/>
+              <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="brand__name">Morine</span>
+        </a>
+        <span class="app-top__title" id="topTitle">Overview</span>
+        <span class="app-top__user" id="topUser"></span>
+      </header>
+
+      <div class="app-top__spacer" aria-hidden="true"></div>
+
+      <main class="app-content">
+
+        <!-- ======= Overview ======= -->
+        <section class="app-view" data-view="overview">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Welcome<span id="welcomeName"></span></h1>
+              <p class="app-h__sub">Your career workspace — let's see where you stand today.</p>
+            </div>
+            <a href="#/profile" class="btn btn--primary btn--sm">Complete profile</a>
+          </div>
+
+          <div class="app-grid">
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">Career Profile</h2>
+                <span class="card__pill" id="profilePill">—</span>
+              </div>
+              <div class="progress-ring" style="--p:0" id="profileRing">
+                <div class="progress-ring__inner"><strong id="profilePct">0</strong><span>%</span></div>
+              </div>
+              <ul class="checklist" id="profileChecks"></ul>
+              <a href="#/profile" class="link">Edit my profile →</a>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">Recommended Opportunities</h2>
+                <span class="card__pill">Live data</span>
+              </div>
+              <div class="opp-list" id="recoList"></div>
+              <a href="#/opportunities" class="link">Browse all opportunities →</a>
+            </div>
+
+            <div class="card card--wide">
+              <div class="card__head">
+                <h2 class="card__title">Career Progress</h2>
+                <span class="card__pill">Live view</span>
+              </div>
+              <div class="cprog">
+                <div class="cprog__step is-done"><span class="cprog__ic">💼</span><div><strong>Skills</strong><small>Captured in your profile</small></div></div>
+                <div class="cprog__link"><i></i></div>
+                <div class="cprog__step" id="cprogGap"><span class="cprog__ic">🧩</span><div><strong>Skill gaps</strong><small>Identified in Skill Gap</small></div></div>
+                <div class="cprog__link"><i></i></div>
+                <div class="cprog__step" id="cprogLearn"><span class="cprog__ic">📚</span><div><strong>Learning</strong><small>Recommended next steps</small></div></div>
+                <div class="cprog__link"><i></i></div>
+                <div class="cprog__step" id="cprogOpp"><span class="cprog__ic">🎯</span><div><strong>Opportunities</strong><small>Matched to your growth</small></div></div>
+              </div>
+            </div>
+          </div>
+
+<div class="live-note">
+             <strong>Live data.</strong> <span class="pill" id="serverStatus">Checking&hellip;</span> Sign in to sync your profile; until then it stays on this device.
+           </div>
+        </section>
+
+        <!-- ======= Opportunities ======= -->
+          <section class="app-view" data-view="jobs">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Opportunities</h1>
+              <p class="app-h__sub">Search and filter roles that fit your skills, experience and goals.</p>
+            </div>
+          </div>
+
+          <div class="opp-filters" id="oppFilters">
+            <div class="field f-kw">
+              <input type="text" id="oppKw" placeholder="Job title, keyword or company" />
+            </div>
+            <div class="field f-loc">
+              <input type="text" id="oppLoc" placeholder="Location (e.g. Lagos)" />
+            </div>
+            <div class="field f-field">
+              <!-- Options are rebuilt from the provider's real `category` values
+                   on every result set. No category is hard-coded or invented. -->
+              <select id="oppField">
+                <option value="all">Career field · All</option>
+              </select>
+            </div>
+            <div class="field f-level">
+              <select id="oppLevel">
+                <option value="all">Experience · Any</option>
+                <option value="entry">Entry level</option>
+                <option value="mid">Mid level</option>
+                <option value="senior">Senior level</option>
+              </select>
+            </div>
+            <div class="field f-remote">
+              <label class="check check--pill" title="Refine the current results to remote roles only"><input type="checkbox" id="oppRemote" /><span>Remote</span></label>
+            </div>
+            <div class="field f-search">
+              <button class="btn btn--primary" id="oppSearchBtn" type="button">Search</button>
+            </div>
+          </div>
+
+          <div class="opp-status" id="oppStatus"></div>
+          <div class="jobs__grid" id="oppResults"></div>
+          <div class="opp-pager" id="oppPager"></div>
+        </section>
+
+        <!-- ======= CV Optimizer ======= -->
+        <section class="app-view" data-view="cv">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">CV Optimizer</h1>
+              <p class="app-h__sub">Understand your CV, sharpen it and compare it against a job description.</p>
+            </div>
+          </div>
+
+          <div class="cvlab">
+            <div class="cvlab__input card">
+              <h2 class="card__title">1 · Upload your CV</h2>
+              <label class="cvlab__drop" id="cvDrop">
+                <input type="file" id="cvFile" accept=".pdf,.docx" hidden />
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13v5M9.5 15.5L12 13l2.5 2.5"/></svg>
+                <strong id="cvDropLabel">Drop PDF or DOCX here, or click to browse</strong>
+                <span>PDF or DOCX · max 5MB</span>
+              </label>
+
+              <h2 class="card__title">2 · Target job description</h2>
+              <textarea id="cvJobDesc" rows="5" placeholder="Paste a job description to compare keywords and required skills..."></textarea>
+
+              <div class="cvlab__actions">
+                <button class="btn btn--primary" id="cvAnalyzeBtn">Optimize CV</button>
+                <span class="cvlab__note">Server-side analysis</span>
+              </div>
+            </div>
+
+            <div class="cvlab__out" id="cvOut">
+              <div class="cvlab__empty">
+                <span class="cvlab__empty-ic">📄</span>
+                <p>Your CV analysis will appear here.</p>
+                <p class="mute">Upload your CV (PDF or DOCX), add a job description if you have one, then press Analyze. The secure backend parses and grades it with your configured AI provider.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= Skill Gap ======= -->
+        <section class="app-view" data-view="skills">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Skill Gap</h1>
+              <p class="app-h__sub">See exactly what stands between your current skills and your target role.</p>
+            </div>
+          </div>
+
+          <div class="sg">
+            <div class="sg__config card">
+              <div class="field">
+                <label for="sgSkills">Current skills</label>
+                <textarea id="sgSkills" rows="3" placeholder="e.g. Excel, SQL, Python, communication..."></textarea>
+              </div>
+              <div class="field">
+                <label for="sgTarget">Target role</label>
+                <select id="sgTarget">
+                  <option value="">Choose a target role...</option>
+                  <option>Data Analyst</option>
+                  <option>Frontend Developer</option>
+                  <option>Software Engineer</option>
+                  <option>Product Manager</option>
+                  <option>UX Designer</option>
+                  <option>Digital Marketer</option>
+                  <option>Accountant</option>
+                  <option>Project Manager</option>
+                  <option>Nurse</option>
+                  <option>Teacher</option>
+                  <option>Customer Success</option>
+                </select>
+              </div>
+              <div class="cvlab__actions">
+                <button class="btn btn--primary" id="sgAnalyzeBtn">Analyze skill gap</button>
+                <span class="cvlab__note">Server-side analysis</span>
+              </div>
+            </div>
+
+            <div class="sg__history card" id="sgHistory" hidden>
+              <h2 class="card__title">Saved analyses</h2>
+              <div id="sgList"></div>
+            </div>
+
+            <div class="sg__out" id="sgOut"></div>
+          </div>
+        </section>
+
+        <!-- ======= Career Path Discovery ======= -->
+        <section class="app-view" data-view="career-path">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Career Path Discovery</h1>
+              <p class="app-h__sub">An AI roadmap from where you are now to the role you want, built from your profile, CV and skill gap.</p>
+            </div>
+          </div>
+
+          <div class="cp__config card">
+            <div class="field">
+              <label for="cpTarget">Target role</label>
+              <input id="cpTarget" type="text" autocomplete="off" placeholder="e.g. Backend Engineer, Data Analyst..." />
+              <p class="cp__hint" id="cpProfileHint"></p>
+            </div>
+            <div class="cvlab__actions">
+              <button class="btn btn--primary" id="cpAnalyzeBtn">Discover my career path</button>
+              <span class="cvlab__note">Server-side analysis &middot; saved to your account</span>
+            </div>
+          </div>
+
+          <div class="cp__history card" id="cpHistory" hidden>
+            <h2 class="card__title">Saved career paths</h2>
+            <div class="cp__list" id="cpList"></div>
+          </div>
+
+          <div class="cp__out" id="cpOut"></div>
+        </section>
+
+        <!-- ======= AI Career Profile (read-only AI interpretation) ======= -->
+        <section class="app-view" data-view="ai-profile">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">AI Career Profile</h1>
+              <p class="app-h__sub">An AI interpretation of the information you have already provided in Profile, CV and Skill Gap.</p>
+            </div>
+          </div>
+
+          <div class="aip__note">
+            <strong>This is an AI-generated interpretation, not your Profile.</strong>
+            <span>Your Profile stays the editable source of truth. Everything below is AI inference drawn only from data you have provided, and it can never add qualifications, experience or skills you did not supply.</span>
+          </div>
+
+          <div class="aip__sources card" id="aipSources"></div>
+
+          <div class="aip__actions">
+            <button class="btn btn--primary" id="aipGenerateBtn">Generate AI Career Profile</button>
+            <span class="cvlab__note">Regenerates from your latest Profile, CV and Skill Gap</span>
+          </div>
+
+          <div class="aip__out" id="aipOut"></div>
+        </section>
+
+        <!-- ======= Career AI ======= -->
+        <section class="app-view" data-view="ai">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Career AI</h1>
+              <p class="app-h__sub">Ask your career co-pilot anything about roles, skills, CVs and interviews.</p>
+            </div>
+          </div>
+
+          <div class="chat" id="chat">
+            <div class="chat__body" id="chatBody">
+              <div class="msg msg--ai">
+                <span class="msg__orb">✦</span>
+                <div class="msg__bubble">
+                  <strong>Hi! I'm your Career AI.</strong>
+                  <p>I can help you understand where your skills can take you. Try one of the suggestions below, or ask me anything about your job search.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat__sugg" id="chatSugg">
+              <button class="chip" data-q="What roles fit my skills?">What roles fit my skills?</button>
+              <button class="chip" data-q="Which skills should I learn next?">Which skills should I learn next?</button>
+              <button class="chip" data-q="How should I present my experience?">How should I present my experience?</button>
+              <button class="chip" data-q="How do I prepare for interviews?">How do I prepare for interviews?</button>
+            </div>
+
+            <form class="chat__form" id="chatForm">
+              <input type="text" id="chatInput" placeholder="Ask about roles, skills, CVs or interviews..." autocomplete="off" />
+              <button type="submit" class="btn btn--primary" aria-label="Send message">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              </button>
+            </form>
+<p class="chat__hint">Answers come from your configured AI provider through the secure backend — sign in to start.</p>
+            </div>
+          </section>
+
+          <!-- ======= Interview Prep ======= -->
+          <section class="app-view" data-view="interview">
+            <div class="app-h">
+              <div>
+                <h1 class="app-h__title">Interview Prep</h1>
+                <p class="app-h__sub">Generate personalized interview questions and guidance based on your profile, CV and target role.</p>
+              </div>
+            </div>
+
+            <div class="ip">
+              <div class="ip__config card">
+                <div class="field">
+                  <label for="ipTarget">Target role</label>
+                  <input type="text" id="ipTarget" placeholder="e.g. Data Analyst" />
+                </div>
+                <div class="field">
+                  <label for="ipType">Interview type</label>
+                  <select id="ipType">
+                    <option value="general">General</option>
+                    <option value="behavioral">Behavioral</option>
+                    <option value="technical">Technical</option>
+                    <option value="role-specific">Role-specific</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="ipJobDesc">Job description (optional)</label>
+                  <textarea id="ipJobDesc" rows="4" placeholder="Paste a job description for job-specific preparation..."></textarea>
+                </div>
+                <div class="cvlab__actions">
+                  <button class="btn btn--primary" id="ipGenerateBtn">Generate preparation</button>
+                  <span class="cvlab__note">Server-side AI generation</span>
+                </div>
+              </div>
+
+              <div class="ip__history card" id="ipHistory" hidden>
+                <h2 class="card__title">Saved preparations</h2>
+                <div id="ipList"></div>
+              </div>
+
+              <div class="ip__out" id="ipOut"></div>
+            </div>
+          </section>
+
+          <!-- ======= Career Profile ======= -->
+        <section class="app-view" data-view="profile">
+          <div class="app-h">
+            <div>
+              <h1 class="app-h__title">Career Profile</h1>
+              <p class="app-h__sub">The foundation that powers matching, CV optimization, skill gaps and your AI coach.</p>
+            </div>
+          </div>
+
+          <form class="pf" id="pfForm">
+            <div class="pf__col">
+              <div class="card">
+                <h2 class="card__title">Target &amp; basics</h2>
+                <div class="field"><label for="pfName">Full name</label><input type="text" id="pfName" placeholder="Your name" /></div>
+                <div class="field"><label for="pfRole">Target role</label><input type="text" id="pfRole" placeholder="e.g. Data Analyst" /></div>
+                <div class="field"><label for="pfInterests">Career interests</label><textarea id="pfInterests" rows="3" placeholder="What excites you about the work you want to do?"></textarea></div>
+              </div>
+
+              <div class="card">
+                <h2 class="card__title">Education</h2>
+                <div class="field"><label for="pfEdSchool">School / institution</label><input type="text" id="pfEdSchool" placeholder="e.g. University of Lagos" /></div>
+                <div class="field"><label for="pfEdDegree">Degree / programme</label><input type="text" id="pfEdDegree" placeholder="e.g. B.Sc. Computer Science" /></div>
+                <div class="field"><label for="pfEdYear">Graduation year</label><input type="text" id="pfEdYear" placeholder="e.g. 2025" /></div>
+              </div>
+
+              <div class="card">
+                <h2 class="card__title">Certifications</h2>
+                <div class="field"><label for="pfCerts">Certifications</label><textarea id="pfCerts" rows="3" placeholder="e.g. Google Data Analytics Certificate, AWS Cloud Practitioner"></textarea></div>
+              </div>
+            </div>
+
+            <div class="pf__col">
+              <div class="card">
+                <h2 class="card__title">Skills</h2>
+                <div class="field"><label for="pfSkills">Skills (comma separated)</label><textarea id="pfSkills" rows="3" placeholder="e.g. SQL, Python, Excel, Stakeholder management"></textarea></div>
+              </div>
+
+              <div class="card">
+                <h2 class="card__title">Work experience</h2>
+                <div class="field"><label for="pfWorkRole">Role</label><input type="text" id="pfWorkRole" placeholder="e.g. Junior Analyst" /></div>
+                <div class="field"><label for="pfWorkCo">Company</label><input type="text" id="pfWorkCo" placeholder="Company name" /></div>
+                <div class="pf__row2">
+                  <div class="field"><label for="pfWorkFrom">From</label><input type="text" id="pfWorkFrom" placeholder="2023" /></div>
+                  <div class="field"><label for="pfWorkTo">To</label><input type="text" id="pfWorkTo" placeholder="Present" /></div>
+                </div>
+                <div class="field"><label for="pfWorkDesc">What you did</label><textarea id="pfWorkDesc" rows="3" placeholder="Key responsibilities and measurable results..."></textarea></div>
+              </div>
+
+              <div class="card">
+                <h2 class="card__title">Volunteer experience</h2>
+                <div class="field"><label for="pfVol">Volunteer work</label><textarea id="pfVol" rows="3" placeholder="Organisations, roles, what you contributed..."></textarea></div>
+              </div>
+
+              <div class="card">
+                <h2 class="card__title">Location &amp; work style</h2>
+                <div class="field"><label for="pfLoc">Preferred location</label><input type="text" id="pfLoc" placeholder="e.g. Lagos · Remote" /></div>
+                <div class="field">
+                  <label>Remote preference</label>
+                  <div class="seg">
+                    <label class="seg__opt"><input type="radio" name="pfRemote" value="remote" /><span>Remote preferred</span></label>
+                    <label class="seg__opt"><input type="radio" name="pfRemote" value="hybrid" /><span>Hybrid</span></label>
+                    <label class="seg__opt"><input type="radio" name="pfRemote" value="onsite" /><span>On-site</span></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pf__save">
+                <button type="submit" class="btn btn--primary" id="pfSaveBtn">Save profile</button>
+                <span class="profile__status" id="pfStatus"></span>
+              </div>
+              <p class="pf__note">Saved on this device as a draft. The data structure is ready to sync to the MongoDB-backed profile API once you sign in.</p>
+            </div>
+          </form>
+        </section>
+
+        <!-- ======= Sign in / Sign up ======= -->
+        <section class="app-view app-view--auth" data-view="signin">
+          <div class="auth-card">
+            <div class="modal__head">
+              <span class="brand__mark brand__mark--lg">
+                <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+                  <defs><linearGradient id="gsi" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+                  </linearGradient></defs>
+                  <rect width="32" height="32" rx="8" fill="url(#gsi)"/>
+                  <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <h1 class="auth-card__title" id="authTitle">Sign in to Morine</h1>
+              <p class="modal__sub">Sign in to sync your profile across devices.</p>
+            </div>
+
+            <div class="auth-tabs" id="authTabs" role="tablist">
+              <button type="button" class="auth-tab is-active" role="tab" aria-selected="true" data-atab="signin">Sign in</button>
+              <button type="button" class="auth-tab" role="tab" aria-selected="false" data-atab="signup">Create account</button>
+            </div>
+
+            <form class="auth-form" id="appSigninForm" novalidate>
+              <div class="field"><label for="appEmail">Email address</label><input type="email" id="appEmail" autocomplete="email" placeholder="you@email.com" required /><span class="field__error" data-error-for="appEmail"></span></div>
+              <div class="field"><label for="appPass">Password</label><input type="password" id="appPass" autocomplete="current-password" placeholder="Your password" required /><span class="field__error" data-error-for="appPass"></span></div>
+              <button type="submit" class="btn btn--primary btn--block" id="appSigninBtn">Sign in</button>
+            </form>
+
+            <form class="auth-form" id="appSignupForm" hidden novalidate>
+              <div class="field"><label for="appName">Full name</label><input type="text" id="appName" autocomplete="name" placeholder="e.g. Aisha Lawal" required /><span class="field__error" data-error-for="appName"></span></div>
+              <div class="field"><label for="appEmail2">Email address</label><input type="email" id="appEmail2" autocomplete="email" placeholder="you@email.com" required /><span class="field__error" data-error-for="appEmail2"></span></div>
+              <div class="field"><label for="appPass2">Password</label><input type="password" id="appPass2" autocomplete="new-password" minlength="8" placeholder="8+ characters" required /><span class="field__error" data-error-for="appPass2"></span></div>
+              <button type="submit" class="btn btn--primary btn--block" id="appSignupBtn">Create my free account</button>
+            </form>
+
+            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip" class="link">Try again later</button>.</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ======= Mobile bottom navigation ======= -->
+  <nav class="app-bottom" id="bottomNav" aria-label="Workspace">
+    <a href="#/profile" class="app-bottom__item" data-nav="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+      <span>Profile</span>
+    </a>
+    <a href="#/overview" class="app-bottom__item" data-nav="overview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#/opportunities" class="app-bottom__item" data-nav="jobs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M2 12h20"/></svg>
+      <span>Jobs</span>
+    </a>
+    <a href="#/cv" class="app-bottom__item" data-nav="cv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
+      <span>CV</span>
+    </a>
+    <a href="#/skills" class="app-bottom__item" data-nav="skills">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+      <span>Skills</span>
+    </a>
+    <a href="#/ai-profile" class="app-bottom__item" data-nav="ai-profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="8" r="3.8"/><path d="M3.5 20.5c0-3.6 3.2-6 7-6 1.1 0 2.1.2 3 .5"/><path d="M18.6 2.6l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+      <span>AI Profile</span>
+    </a>
+    <a href="#/career-path" class="app-bottom__item" data-nav="career-path">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h4v-6h4V9h4V5h5"/><path d="M17 2l3 3-3 3"/></svg>
+      <span>Path</span>
+    </a>
+    <a href="#/interview" class="app-bottom__item" data-nav="interview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Prep</span>
+    </a>
+    <a href="#/ai" class="app-bottom__item" data-nav="ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>AI</span>
+    </a>
+  </nav>
+
+  <!-- Mobile menu veil + drawer reuse of sidebar -->
+  <div class="menu-veil" id="menuVeil" hidden></div>
+  <div class="side-draw" id="sideDraw" aria-hidden="true">
+    <div class="side-draw__inner" id="sideDrawInner"></div>
+  </div>
+
+  <!-- Confirmation dialog for destructive actions on the user's own data.
+       Each action supplies its own wording so "Delete CV" is never confused
+       with "Remove profile information", "Log out", or account deletion. -->
+  <div class="confirm" id="confirm" hidden>
+    <div class="confirm__backdrop" data-confirm-cancel></div>
+    <div class="confirm__box" role="alertdialog" aria-modal="true"
+         aria-labelledby="confirmTitle" aria-describedby="confirmMsg" id="confirmBox">
+      <h2 class="confirm__title" id="confirmTitle">Are you sure?</h2>
+      <p class="confirm__msg" id="confirmMsg"></p>
+      <p class="confirm__scope" id="confirmScope" hidden></p>
+      <div class="confirm__actions">
+        <button type="button" class="btn btn--ghost" id="confirmCancel">Cancel</button>
+        <button type="button" class="btn btn--danger" id="confirmOk">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global toast -->
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <!-- Offline notice: Morine's AI and job features need the backend. -->
+  <div class="netbar" id="netbar" role="status" hidden>
+    <strong>You are offline.</strong>
+    <span>Sign in, Opportunities, CV analysis, Career Path and AI features need an internet connection. Your saved Profile is not shown offline.</span>
+  </div>
+
+  <!-- Install prompt, shown only when the browser offers installation. -->
+  <div class="installbar" id="installbar" hidden>
+    <span class="installbar__txt">Install Morine for quick access from your home screen.</span>
+    <button type="button" class="btn btn--primary btn--sm" id="installBtn">Install</button>
+    <button type="button" class="installbar__x" id="installDismiss" aria-label="Dismiss install prompt">Dismiss</button>
+  </div>
+
+  <!-- Runtime configuration must load before app.js, which reads it on boot. -->
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
