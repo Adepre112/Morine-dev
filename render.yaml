@@ -56,6 +56,18 @@ services:
       - key: GEMINI_API_KEY
         sync: false        # Gemini AI provider
 
+      # --- Email configuration (for password reset) ---------------------
+      - key: EMAIL_HOST
+        sync: false        # SMTP host (e.g., smtp.sendgrid.net, smtp.gmail.com)
+      - key: EMAIL_PORT
+        sync: false        # SMTP port (587 for TLS, 465 for SSL)
+      - key: EMAIL_USER
+        sync: false        # SMTP username
+      - key: EMAIL_PASS
+        sync: false        # SMTP password
+      - key: EMAIL_FROM
+        sync: false        # From address (e.g., "Morine <noreply@morine.ai>")
+
       # --- Optional configuration ------------------------------------------
       - key: AI_PROVIDER
         value: gemini
@@ -73,3 +85,5 @@ services:
       # CORS is required and none is mounted when this variable is absent.
       # Only set it if a genuinely separate, deliberate extra origin ever needs
       # to be allow-listed.
+      # - key: FRONTEND_URL
+      #   sync: false        # e.g., https://morine.example.com

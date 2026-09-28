@@ -484,6 +484,20 @@ body { overflow-x: clip; }
 .auth-card__title { font-family: var(--font-display); font-size: 1.4rem; margin-top: 14px; text-align: center; letter-spacing: -.01em; }
 .auth-card__skip { margin-top: 18px; text-align: center; font-size: .86rem; color: var(--text-mute); }
 .auth-card__skip button { border: none; background: none; cursor: pointer; font-size: .86rem; }
+.auth-forgot { text-align: center; margin: 8px 0 4px; font-size: .86rem; }
+.auth-forgot a { color: var(--primary); text-decoration: underline; }
+.auth-forgot a:hover { color: var(--cyan); }
+
+.auth-success { text-align: center; padding: 8px 0 4px; }
+.auth-success svg { color: var(--mint); margin-bottom: 12px; }
+.auth-success h2 { font-family: var(--font-display); font-size: 1.2rem; margin: 0 0 8px; }
+.auth-success p { color: var(--text-dim); margin: 0 0 4px; font-size: .9rem; }
+.auth-success .mute { font-size: .8rem; color: var(--text-mute); margin-bottom: 4px; }
+
+.auth-error { text-align: center; padding: 8px 0 4px; }
+.auth-error svg { color: var(--danger); margin-bottom: 12px; }
+.auth-error h2 { font-family: var(--font-display); font-size: 1.2rem; margin: 0 0 8px; }
+.auth-error p { color: var(--text-dim); margin: 0 0 4px; font-size: .9rem; }
 
 /* ---------- 12b. AI Career Profile (read-only AI interpretation) ---------- */
 .aip__note {

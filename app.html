@@ -531,7 +531,7 @@
           </form>
         </section>
 
-        <!-- ======= Sign in / Sign up ======= -->
+        <!-- ======= Sign In ======= -->
         <section class="app-view app-view--auth" data-view="signin">
           <div class="auth-card">
             <div class="modal__head">
@@ -545,29 +545,134 @@
                   <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
                 </svg>
               </span>
-              <h1 class="auth-card__title" id="authTitle">Sign in to Morine</h1>
+              <h1 class="auth-card__title">Sign in to Morine</h1>
               <p class="modal__sub">Sign in to sync your profile across devices.</p>
-            </div>
-
-            <div class="auth-tabs" id="authTabs" role="tablist">
-              <button type="button" class="auth-tab is-active" role="tab" aria-selected="true" data-atab="signin">Sign in</button>
-              <button type="button" class="auth-tab" role="tab" aria-selected="false" data-atab="signup">Create account</button>
             </div>
 
             <form class="auth-form" id="appSigninForm" novalidate>
               <div class="field"><label for="appEmail">Email address</label><input type="email" id="appEmail" autocomplete="email" placeholder="you@email.com" required /><span class="field__error" data-error-for="appEmail"></span></div>
               <div class="field"><label for="appPass">Password</label><input type="password" id="appPass" autocomplete="current-password" placeholder="Your password" required /><span class="field__error" data-error-for="appPass"></span></div>
+              <p class="auth-forgot"><a href="#/forgot-password" id="forgotPasswordLink">Forgot password?</a></p>
               <button type="submit" class="btn btn--primary btn--block" id="appSigninBtn">Sign in</button>
             </form>
 
-            <form class="auth-form" id="appSignupForm" hidden novalidate>
+            <p class="auth-card__skip">Don't have an account? <a href="#/signup" class="link">Create an account</a></p>
+            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip" class="link">Try again later</button>.</p>
+          </div>
+        </section>
+
+        <!-- ======= Sign Up / Create Account ======= -->
+        <section class="app-view app-view--auth" data-view="signup">
+          <div class="auth-card">
+            <div class="modal__head">
+              <span class="brand__mark brand__mark--lg">
+                <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+                  <defs><linearGradient id="gsi" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+                  </linearGradient></defs>
+                  <rect width="32" height="32" rx="8" fill="url(#gsi)"/>
+                  <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <h1 class="auth-card__title">Create your account</h1>
+              <p class="modal__sub">Join Morine to unlock your AI career workspace.</p>
+            </div>
+
+            <form class="auth-form" id="appSignupForm" novalidate>
               <div class="field"><label for="appName">Full name</label><input type="text" id="appName" autocomplete="name" placeholder="e.g. Aisha Lawal" required /><span class="field__error" data-error-for="appName"></span></div>
               <div class="field"><label for="appEmail2">Email address</label><input type="email" id="appEmail2" autocomplete="email" placeholder="you@email.com" required /><span class="field__error" data-error-for="appEmail2"></span></div>
               <div class="field"><label for="appPass2">Password</label><input type="password" id="appPass2" autocomplete="new-password" minlength="8" placeholder="8+ characters" required /><span class="field__error" data-error-for="appPass2"></span></div>
+              <div class="field"><label for="appPass3">Confirm password</label><input type="password" id="appPass3" autocomplete="new-password" minlength="8" placeholder="Confirm password" required /><span class="field__error" data-error-for="appPass3"></span></div>
               <button type="submit" class="btn btn--primary btn--block" id="appSignupBtn">Create my free account</button>
             </form>
 
-            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip" class="link">Try again later</button>.</p>
+            <p class="auth-card__skip">Already have an account? <a href="#/signin" class="link">Sign in</a></p>
+            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip2" class="link">Try again later</button>.</p>
+          </div>
+        </section>
+
+        <!-- ======= Forgot Password ======= -->
+        <section class="app-view app-view--auth" data-view="forgot-password">
+          <div class="auth-card">
+            <div class="modal__head">
+              <span class="brand__mark brand__mark--lg">
+                <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+                  <defs><linearGradient id="gsi" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+                  </linearGradient></defs>
+                  <rect width="32" height="32" rx="8" fill="url(#gsi)"/>
+                  <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <h1 class="auth-card__title">Forgot password?</h1>
+              <p class="modal__sub">Enter your email and we'll send you a link to reset your password.</p>
+            </div>
+
+            <form class="auth-form" id="appForgotForm" novalidate>
+              <div class="field"><label for="forgotEmail">Email address</label><input type="email" id="forgotEmail" autocomplete="email" placeholder="you@email.com" required /><span class="field__error" data-error-for="forgotEmail"></span></div>
+              <button type="submit" class="btn btn--primary btn--block" id="forgotSubmitBtn">Send reset link</button>
+            </form>
+
+            <div class="auth-form" id="forgotSuccess" hidden>
+              <div class="auth-success">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                <h2>Check your inbox</h2>
+                <p>If an account exists with that email, a password reset link has been sent.</p>
+                <p class="mute">The link expires in 1 hour.</p>
+                <a href="#/signin" class="btn btn--primary btn--block" style="margin-top:16px">Back to sign in</a>
+              </div>
+            </div>
+
+            <p class="auth-card__skip"><a href="#/signin" class="link">Back to sign in</a></p>
+          </div>
+        </section>
+
+        <!-- ======= Reset Password ======= -->
+        <section class="app-view app-view--auth" data-view="reset-password">
+          <div class="auth-card">
+            <div class="modal__head">
+              <span class="brand__mark brand__mark--lg">
+                <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+                  <defs><linearGradient id="gsi" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#705cff"/><stop offset="1" stop-color="#22d3ee"/>
+                  </linearGradient></defs>
+                  <rect width="32" height="32" rx="8" fill="url(#gsi)"/>
+                  <path d="M9 21.5c1.6 1.2 3.7 2 6 2 3 0 5.5-1.6 5.5-4.2 0-3-3-3.6-5.7-4.6-2.4-.9-4.3-1.5-4.3-3.4 0-1.5 1.6-2.6 4-2.6 1.6 0 2.9.5 3.9 1.3" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M16 8v2.2M16 21.3v2.2" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <h1 class="auth-card__title">Reset password</h1>
+              <p class="modal__sub">Enter your new password below.</p>
+            </div>
+
+            <form class="auth-form" id="appResetForm" novalidate>
+              <input type="hidden" id="resetToken" />
+              <div class="field"><label for="resetPass">New password</label><input type="password" id="resetPass" autocomplete="new-password" minlength="8" placeholder="8+ characters" required /><span class="field__error" data-error-for="resetPass"></span></div>
+              <div class="field"><label for="resetPassConfirm">Confirm new password</label><input type="password" id="resetPassConfirm" autocomplete="new-password" minlength="8" placeholder="Confirm password" required /><span class="field__error" data-error-for="resetPassConfirm"></span></div>
+              <button type="submit" class="btn btn--primary btn--block" id="resetSubmitBtn">Reset password</button>
+            </form>
+
+            <div class="auth-form" id="resetSuccess" hidden>
+              <div class="auth-success">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                <h2>Password reset successful</h2>
+                <p>Your password has been changed. You can now sign in with your new password.</p>
+                <a href="#/signin" class="btn btn--primary btn--block" style="margin-top:16px">Sign in</a>
+              </div>
+            </div>
+
+            <div class="auth-form" id="resetError" hidden>
+              <div class="auth-error">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <h2>Invalid or expired link</h2>
+                <p id="resetErrorMsg">This password reset link is invalid or has expired.</p>
+                <a href="#/forgot-password" class="btn btn--primary btn--block" style="margin-top:16px">Request a new link</a>
+              </div>
+            </div>
+
+            <p class="auth-card__skip"><a href="#/signin" class="link">Back to sign in</a></p>
           </div>
         </section>
 

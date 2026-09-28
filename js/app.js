@@ -64,20 +64,37 @@
   };
 
   async function api(path, opts) {
+    const baseUrl = getApiBaseUrl();
+    const fullPath = baseUrl ? baseUrl.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "") : path;
+    const isFormData = opts && opts.body instanceof FormData;
+    const defaultHeaders = { "Accept": "application/json" };
+    if (!isFormData) defaultHeaders["Content-Type"] = "application/json";
+
+    const controller = new AbortController();
+    const timeoutMs = opts?.timeout || 30000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const baseUrl = getApiBaseUrl();
-      const fullPath = baseUrl ? baseUrl.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "") : path;
-      const isFormData = opts && opts.body instanceof FormData;
-      const defaultHeaders = { "Accept": "application/json" };
-      if (!isFormData) defaultHeaders["Content-Type"] = "application/json";
       const res = await fetch(fullPath, Object.assign({
-        method: "GET"
-      }, opts || {}, { headers: Object.assign({}, defaultHeaders, (opts && opts.headers) || {}) }));
+        method: "GET",
+        credentials: "same-origin"
+      }, opts || {}, {
+        headers: Object.assign({}, defaultHeaders, (opts && opts.headers) || {}),
+        signal: controller.signal
+      }));
+      clearTimeout(timeoutId);
       let data = null;
       try { data = await res.json(); } catch (e) { data = null; }
       return { ok: res.ok, status: res.status, data };
     } catch (e) {
-      return { ok: false, status: 0, data: null };
+      clearTimeout(timeoutId);
+      if (e.name === "AbortError") {
+        return { ok: false, status: 408, data: { error: "Request timed out. Please try again." } };
+      }
+      if (e.name === "TypeError" && e.message.includes("fetch")) {
+        return { ok: false, status: 0, data: { error: "Unable to connect to Morine's server. Please check your internet connection and try again." } };
+      }
+      return { ok: false, status: 0, data: { error: "An unexpected error occurred. Please try again." } };
     }
   }
 
@@ -271,7 +288,10 @@
     { id: "career-path", title: "Career Path Discovery", path: "/career-path" },
     { id: "interview", title: "Interview Preparation", path: "/interview" },
     { id: "ai", title: "AI Assistant", path: "/ai" },
-    { id: "signin", title: "Account", path: "/signin" }
+    { id: "signin", title: "Sign In", path: "/signin" },
+    { id: "signup", title: "Create Account", path: "/signup" },
+    { id: "forgot-password", title: "Forgot Password", path: "/forgot-password" },
+    { id: "reset-password", title: "Reset Password", path: "/reset-password" }
   ];
 
   function currentView() {
@@ -292,7 +312,8 @@
       if (el) el.classList.toggle("is-active", v.id === active.id);
     });
     const titleEl = $("#topTitle");
-    if (titleEl && active.id !== "signin") titleEl.textContent = active.title;
+    const authViews = ["signin", "signup", "forgot-password", "reset-password"];
+    if (titleEl && !authViews.includes(active.id)) titleEl.textContent = active.title;
     if (opts.keepHash && location.hash !== "#" + active.path) {
       history.replaceState(null, "", "#" + active.path);
     }
@@ -824,10 +845,20 @@
 
   function apiErrorHint(res) {
     if (!res) return "Could not reach the backend. Please try again.";
-    if (res.status === 0) return "Could not reach the backend. Please try again.";
+    if (res.status === 0) return "Unable to connect to Morine's server. Please check your internet connection and try again.";
+    if (res.status === 408) return "The request timed out. Please try again.";
     if (res.status === 401) return AUTH_HINT;
+    if (res.status === 403) return "Access denied. Please sign in again.";
+    if (res.status === 404) return "The requested resource was not found.";
+    if (res.status === 413) return "File too large. Maximum 5MB allowed.";
+    if (res.status === 422) {
+      const msg = String((res.data && (res.data.error || res.data.message)) || "").trim();
+      return msg || "The file could not be processed. Please ensure it's a valid PDF or DOCX.";
+    }
+    if (res.status === 429) return "Too many requests. Please wait a moment and try again.";
+    if (res.status >= 500) return "Something went wrong on the server. Please try again later.";
     const msg = String((res.data && (res.data.error || res.data.message)) || "").trim();
-    return msg || "The AI backend could not complete that request. Please try again.";
+    return msg || "The request failed. Please try again.";
   }
 
   function authRequiredMarkup(action) {
@@ -1290,7 +1321,27 @@
     await refreshCvLibrary();
   }
 
+  function validateCvFile(file) {
+    if (!file) return { valid: false, error: "No file selected." };
+    const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"];
+    const allowedExtensions = ["pdf", "docx"];
+    const extension = (file.name.split(".").pop() || "").toLowerCase();
+    const isValidType = allowedTypes.includes(file.type) || allowedExtensions.includes(extension);
+    if (!isValidType) {
+      return { valid: false, error: "Unsupported file type. Please upload a PDF or DOCX file." };
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      return { valid: false, error: "File too large. Maximum 5MB allowed." };
+    }
+    return { valid: true };
+  }
+
   async function uploadCV(file) {
+    const validation = validateCvFile(file);
+    if (!validation.valid) {
+      return { ok: false, status: 400, data: { error: validation.error } };
+    }
     const fd = new FormData();
     fd.append("cv", file);
     return await authApi("/api/cv/upload", { method: "POST", body: fd });
@@ -1310,6 +1361,11 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     const target = ($("#cvJobDesc") || { value: "" }).value;
     if (!file) {
       toast("Please select a CV file first.", false);
+      return;
+    }
+    const validation = validateCvFile(file);
+    if (!validation.valid) {
+      toast(validation.error, false);
       return;
     }
     this.classList.add("is-loading");
@@ -1358,6 +1414,12 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
       e.preventDefault();
       cvDrop.classList.remove("is-drag");
       const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const validation = validateCvFile(f);
+      if (!validation.valid) {
+        toast(validation.error, false);
+        return;
+      }
       const input = $("#cvFile");
       if (f && input) {
         const dt = new DataTransfer();
@@ -1371,6 +1433,16 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     const label = $("#cvDropLabel");
     if (label && file) label.textContent = "Selected: " + file.name;
     if (!file) return;
+    
+    // Client-side validation
+    const validation = validateCvFile(file);
+    if (!validation.valid) {
+      toast(validation.error, false);
+      this.value = "";
+      if (label) label.textContent = "Drop PDF or DOCX here, or click to browse";
+      return;
+    }
+
     // A file chosen via "Replace CV" is handled here, and only here. The input
     // is reset first so re-picking the same file fires change again.
     if (cvReplacePending) {
@@ -2653,15 +2725,6 @@ authApi("/api/interview-prep/analyze", {
   /* ---------- 8c. Auth ---------- */
   const authTitleEl = $("#authTitle");
 
-  function setAuthMode(kind) {
-    const isUp = kind === "signup";
-    if ($("#authTabs")) $$("[data-atab]", $("#authTabs")).forEach(t => t.classList.toggle("is-active", t.dataset.atab === kind));
-    const si = $("#appSigninForm"), su = $("#appSignupForm");
-    if (si) si.hidden = isUp;
-    if (su) su.hidden = !isUp;
-    if (authTitleEl) authTitleEl.textContent = isUp ? "Create your account" : "Sign in to Morine";
-  }
-
   function serverFlag(ok) {
     const el = $("#serverStatus");
     if (!el) return;
@@ -2776,10 +2839,13 @@ authApi("/api/interview-prep/analyze", {
         authSuccess(name, body.email);
       } else if (res.status === 0) {
         store.del(LS_TOKEN);
-        toast("Server not reachable. Please check your connection and try again.", false);
+        toast(apiErrorHint(res), false);
+      } else if (res.status === 401) {
+        store.del(LS_TOKEN);
+        toast((res.data && (res.data.error || res.data.message)) || "Incorrect email or password.", false);
       } else {
         store.del(LS_TOKEN);
-        toast((res.data && (res.data.error || res.data.message)) || "Sign-in failed. Please try again.", false);
+        toast(apiErrorHint(res), false);
       }
     });
   }
@@ -2792,17 +2858,129 @@ authApi("/api/interview-prep/analyze", {
   });
   $("#appSignupForm") && $("#appSignupForm").addEventListener("submit", function (e) {
     e.preventDefault();
+    const pass = ($("#appPass2") || { value: "" }).value;
+    const confirm = ($("#appPass3") || { value: "" }).value;
+    if (pass !== confirm) {
+      toast("Passwords do not match.", false);
+      return;
+    }
     handleAuth("/api/auth/signup",
       [{ name: "name", id: "appName" }, { name: "email", id: "appEmail2" }, { name: "password", id: "appPass2" }],
       "appSignupBtn");
   });
 
-  $("#authTabs") && $("#authTabs").addEventListener("click", function (e) {
-    const tab = e.target.closest("[data-atab]");
-    if (tab) setAuthMode(tab.dataset.atab);
+  // Forgot Password
+  $("#appForgotForm") && $("#appForgotForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const btn = $("#forgotSubmitBtn");
+    const email = ($("#forgotEmail") || { value: "" }).value;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast("Please enter a valid email address.", false);
+      return;
+    }
+    if (btn) btn.classList.add("is-loading");
+    api("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email })
+    }).then(res => {
+      if (btn) btn.classList.remove("is-loading");
+      if (res.ok) {
+        $("#appForgotForm").hidden = true;
+        $("#forgotSuccess").hidden = false;
+      } else {
+        toast((res.data && (res.data.error || res.data.message)) || "Request failed. Please try again.", false);
+      }
+    }).catch(() => {
+      if (btn) btn.classList.remove("is-loading");
+      toast("Could not reach the backend. Please try again.", false);
+    });
   });
 
+  // Reset Password - extract token from URL
+  function getResetTokenFromUrl() {
+    const params = new URLSearchParams(location.hash.split("?")[1] || "");
+    return params.get("token") || "";
+  }
+
+  function initResetPasswordView() {
+    const token = getResetTokenFromUrl();
+    const tokenInput = $("#resetToken");
+    if (tokenInput) tokenInput.value = token;
+    // Verify token
+    if (token) {
+      api("/api/auth/verify-reset-token", {
+        method: "POST",
+        body: JSON.stringify({ token })
+      }).then(res => {
+        if (res.ok && res.data && res.data.data && res.data.data.valid) {
+          $("#appResetForm").hidden = false;
+          $("#resetError").hidden = true;
+        } else {
+          $("#appResetForm").hidden = true;
+          $("#resetError").hidden = false;
+          const msg = (res.data && (res.data.error || res.data.message)) || "This password reset link is invalid or has expired.";
+          $("#resetErrorMsg").textContent = msg;
+        }
+      }).catch(() => {
+        $("#appResetForm").hidden = true;
+        $("#resetError").hidden = false;
+        $("#resetErrorMsg").textContent = "Could not verify the reset link. Please try again.";
+      });
+    } else {
+      $("#appResetForm").hidden = true;
+      $("#resetError").hidden = false;
+      $("#resetErrorMsg").textContent = "No reset token provided. Please request a new password reset link.";
+    }
+  }
+
+  $("#appResetForm") && $("#appResetForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const btn = $("#resetSubmitBtn");
+    const token = ($("#resetToken") || { value: "" }).value;
+    const password = ($("#resetPass") || { value: "" }).value;
+    const confirmPassword = ($("#resetPassConfirm") || { value: "" }).value;
+    if (!password || !confirmPassword) {
+      toast("Please enter and confirm your new password.", false);
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast("Passwords do not match.", false);
+      return;
+    }
+    if (password.length < 8) {
+      toast("Password must be at least 8 characters.", false);
+      return;
+    }
+    if (btn) btn.classList.add("is-loading");
+    api("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password, confirmPassword })
+    }).then(res => {
+      if (btn) btn.classList.remove("is-loading");
+      if (res.ok) {
+        $("#appResetForm").hidden = true;
+        $("#resetSuccess").hidden = false;
+      } else {
+        toast((res.data && (res.data.error || res.data.message)) || "Password reset failed. Please try again.", false);
+      }
+    }).catch(() => {
+      if (btn) btn.classList.remove("is-loading");
+      toast("Could not reach the backend. Please try again.", false);
+    });
+  });
+
+  // Re-initialize reset password view when navigated to
+  const originalShowView = showView;
+  showView = function(id, opts) {
+    originalShowView(id, opts);
+    if (id === "reset-password") initResetPasswordView();
+  };
+
   $("#authSkip") && $("#authSkip").addEventListener("click", function () {
+    toast("Server not reachable — sign in when available.", false);
+    navigate("overview");
+  });
+  $("#authSkip2") && $("#authSkip2").addEventListener("click", function () {
     toast("Server not reachable — sign in when available.", false);
     navigate("overview");
   });
@@ -2854,7 +3032,8 @@ authApi("/api/interview-prep/analyze", {
   }
 
   function guardRoute(id) {
-    if (id === "signin") return "signin";
+    const publicAuthViews = ["signin", "signup", "forgot-password", "reset-password"];
+    if (publicAuthViews.includes(id)) return id;
     if (PROTECTED_VIEWS.has(id) && !isSignedIn()) return "signin";
     return id;
   }
@@ -2884,10 +3063,7 @@ authApi("/api/interview-prep/analyze", {
       if (guard !== id) {
         // replaceState (not pushState) so Back cannot return to the blocked view.
         history.replaceState(null, "", "#/signin");
-        setAuthMode("signin");
         id = "signin";
-      } else if (id === "signin") {
-        setAuthMode("signin");
       }
       showView(id);
       renderOverview();
@@ -2900,7 +3076,6 @@ authApi("/api/interview-prep/analyze", {
       initial = "signin";
       history.replaceState(null, "", "#/signin");
     }
-    if (initial === "signin") setAuthMode("signin");
     showView(initial);
     if (!location.hash) history.replaceState(null, "", "#/overview");
   }

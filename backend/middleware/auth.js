@@ -34,6 +34,14 @@ function hashRefreshToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function generateResetToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function hashResetToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
@@ -80,6 +88,8 @@ module.exports = {
   verifyAccessToken,
   generateRefreshToken,
   hashRefreshToken,
+  generateResetToken,
+  hashResetToken,
   authMiddleware,
   JWT_SECRET,
   JWT_ACCESS_SECRET,

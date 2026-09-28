@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -23,6 +24,15 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required."],
       select: false,
     },
+    resetTokenHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    resetTokenExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -36,9 +46,22 @@ userSchema.statics.hashPassword = async function (password) {
   return bcrypt.hash(password, salt);
 };
 
+userSchema.statics.hashResetToken = function (token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+};
+
+userSchema.methods.verifyResetToken = function (token) {
+  if (!this.resetTokenHash || !this.resetTokenExpiry) return false;
+  if (this.resetTokenExpiry < new Date()) return false;
+  const hash = this.constructor.hashResetToken(token);
+  return hash === this.resetTokenHash;
+};
+
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.passwordHash;
+  delete obj.resetTokenHash;
+  delete obj.resetTokenExpiry;
   delete obj.__v;
   return obj;
 };

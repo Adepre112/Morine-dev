@@ -5,10 +5,93 @@ const {
   generateAccessToken,
   generateRefreshToken,
   hashRefreshToken,
+  generateResetToken,
+  hashResetToken,
 } = require("../middleware/auth");
+const nodemailer = require("nodemailer");
 
 const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
+const RESET_TOKEN_MAX_AGE = 60 * 60 * 1000; // 1 hour
+
+/* Email transporter - lazily initialized */
+let emailTransporter = null;
+
+function getEmailTransporter() {
+  if (emailTransporter) return emailTransporter;
+
+  const host = process.env.EMAIL_HOST;
+  const port = parseInt(process.env.EMAIL_PORT || "587", 10);
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  const from = process.env.EMAIL_FROM || `"Morine" <${user}>`;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  emailTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  return emailTransporter;
+}
+
+async function sendResetEmail(email, resetToken) {
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    console.warn("[Auth] Email not configured - password reset email not sent");
+    return false;
+  }
+
+  const frontendUrl = (process.env.FRONTEND_URL || "").trim();
+  const resetUrl = frontendUrl
+    ? `${frontendUrl.replace(/\/+$/, "")}/#/reset-password?token=${resetToken}`
+    : `Reset token (dev only): ${resetToken}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a2e; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #705cff 0%, #22d3ee 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">Morine</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Your AI Career Co-Pilot</p>
+      </div>
+      <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+        <h2 style="color: #1a1a2e; margin-top: 0;">Reset your password</h2>
+        <p>You requested a password reset for your Morine account. Click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #705cff 0%, #22d3ee 100%); color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset Password</a>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+        <p style="color: #94a3b8; font-size: 12px;">If the button doesn't work, copy this link:<br><span style="word-break: break-all;">${resetUrl}</span></p>
+      </div>
+      <p style="color: #94a3b8; font-size: 11px; text-align: center; margin-top: 16px;">© 2026 Morine Technologies. Osogbo, Osun State · Remote 🌍</p>
+    </body>
+    </html>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: "Reset your Morine password",
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error("[Auth] Failed to send reset email:", error.message);
+    return false;
+  }
+}
 
 /* Cookie policy.
  *
@@ -185,6 +268,111 @@ class AuthController {
 
   async me(req, res) {
     return res.json({ success: true, data: { user: req.user } });
+  }
+
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ success: false, error: "Please provide a valid email address." });
+      }
+
+      const user = await User.findOne({ email: email.toLowerCase() });
+      
+      // Always return the same generic response to prevent email enumeration
+      const genericResponse = {
+        success: true,
+        data: { message: "If an account exists with this email, a password reset link has been sent." }
+      };
+
+      if (!user) {
+        return res.json(genericResponse);
+      }
+
+      // Generate secure reset token
+      const resetToken = generateResetToken();
+      const resetTokenHash = hashResetToken(resetToken);
+      const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_MAX_AGE);
+
+      // Store only the hash
+      user.resetTokenHash = resetTokenHash;
+      user.resetTokenExpiry = resetTokenExpiry;
+      await user.save();
+
+      // Send email (non-blocking - don't reveal if email fails)
+      sendResetEmail(user.email, resetToken).catch(() => {});
+
+      return res.json(genericResponse);
+    } catch (error) {
+      console.error("[Auth] Forgot password error:", error.message);
+      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+    }
+  }
+
+  async verifyResetToken(req, res) {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Reset token is required." });
+      }
+
+      // Find user with this reset token hash
+      const tokenHash = hashResetToken(token);
+      const user = await User.findOne({ resetTokenHash: tokenHash });
+
+      if (!user || !user.verifyResetToken(token)) {
+        return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
+      }
+
+      return res.json({ success: true, data: { valid: true } });
+    } catch (error) {
+      console.error("[Auth] Verify reset token error:", error.message);
+      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+    }
+  }
+
+  async resetPassword(req, res) {
+    try {
+      const { token, password, confirmPassword } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Reset token is required." });
+      }
+      if (!password || !confirmPassword) {
+        return res.status(400).json({ success: false, error: "Password and confirmation are required." });
+      }
+      if (password !== confirmPassword) {
+        return res.status(400).json({ success: false, error: "Passwords do not match." });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ success: false, error: "Password must be at least 8 characters." });
+      }
+
+      // Find user with this reset token hash
+      const tokenHash = hashResetToken(token);
+      const user = await User.findOne({ resetTokenHash: tokenHash }).select("+passwordHash");
+
+      if (!user || !user.verifyResetToken(token)) {
+        return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
+      }
+
+      // Hash new password and clear reset token
+      user.passwordHash = await User.hashPassword(password);
+      user.resetTokenHash = null;
+      user.resetTokenExpiry = null;
+      await user.save();
+
+      // Revoke all refresh tokens for this user (force re-login)
+      await RefreshToken.updateMany(
+        { userId: user._id, revokedAt: null },
+        { $set: { revokedAt: new Date() } }
+      );
+
+      return res.json({ success: true, data: { message: "Password has been reset successfully. You can now sign in with your new password." } });
+    } catch (error) {
+      console.error("[Auth] Reset password error:", error.message);
+      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+    }
   }
 }
 
