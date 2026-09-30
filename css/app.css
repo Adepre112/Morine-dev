@@ -369,6 +369,50 @@ body { overflow-x: clip; }
 .msg__bubble p { font-size: .9rem; color: var(--text-dim); line-height: 1.62; }
 .msg__bubble ul { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
 .msg__bubble li { font-size: .88rem; color: var(--text-dim); }
+
+/* Career AI reply: Markdown rendered as real UI (headings, lists, emphasis).
+   Declared after the rules above so inline <strong> stays inline inside a reply. */
+.msg__md { overflow-wrap: anywhere; }
+.msg__md > *:first-child { margin-top: 0; }
+.msg__md > *:last-child { margin-bottom: 0; }
+.msg__md p { margin: 0 0 10px; }
+.msg__md h1, .msg__md h2, .msg__md h3,
+.msg__md h4, .msg__md h5, .msg__md h6 {
+  color: var(--text); font-family: var(--font-display); font-weight: 700;
+  line-height: 1.35; margin: 14px 0 8px;
+}
+.msg__md h1 { font-size: 1.04rem; }
+.msg__md h2 { font-size: .99rem; }
+.msg__md h3 { font-size: .94rem; }
+.msg__md h4, .msg__md h5, .msg__md h6 { font-size: .9rem; }
+.msg__md h1:first-child, .msg__md h2:first-child,
+.msg__md h3:first-child, .msg__md h4:first-child { margin-top: 0; }
+.msg__md ul, .msg__md ol { display: block; margin: 0 0 10px; padding-left: 20px; list-style-position: outside; }
+/* styles.css ships a global `ul, ol { list-style: none }` reset - put the
+   markers back so numbered and bulleted AI advice is readable. */
+.msg__md ul { list-style-type: disc; }
+.msg__md ol { list-style-type: decimal; }
+.msg__md ul ul { list-style-type: circle; }
+.msg__md ul ul ul { list-style-type: square; }
+.msg__md li { margin: 0 0 6px; }
+.msg__md li:last-child { margin-bottom: 0; }
+.msg__md li::marker { color: var(--primary-2); }
+.msg__md ul ul, .msg__md ol ol, .msg__md ul ol, .msg__md ol ul { margin: 6px 0 0; }
+.msg__md li > strong { font-weight: 700; color: var(--text); }
+.msg__md strong { display: inline; font-size: inherit; margin: 0; color: var(--text); }
+.msg__md em { font-style: italic; }
+.msg__md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em;
+  background: rgba(148,163,216,.14); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 5px;
+}
+.msg__md blockquote {
+  margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--primary);
+  background: rgba(148,163,216,.07); border-radius: 0 8px 8px 0;
+}
+.msg__md blockquote p { margin: 0; color: var(--text-dim); font-style: italic; }
+.msg__md a { color: var(--aqua, #22d3ee); text-decoration: underline; }
+
 .msg__typing { display: flex; gap: 5px; padding: 4px 0; }
 .msg__typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-mute); animation: typing 1.1s infinite; }
 .msg__typing i:nth-child(2) { animation-delay: .18s; }
@@ -646,6 +690,11 @@ body { overflow-x: clip; }
   .chat__form { padding: 12px 16px; }
   .chat__sugg { padding: 0 16px 10px; }
   .msg { max-width: 92%; }
+  .msg__md h1 { font-size: 1rem; }
+  .msg__md h2 { font-size: .95rem; }
+  .msg__md h3 { font-size: .91rem; }
+  .msg__md p { margin-bottom: 9px; }
+  .msg__md ul, .msg__md ol { padding-left: 18px; }
   .auth-card { padding: 28px 22px 22px; }
   .card { padding: 18px; }
   .cprog__step { text-align: left; display: flex; gap: 12px; align-items: center; padding: 12px 14px; }

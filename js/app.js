@@ -2000,6 +2000,146 @@ authApi("/api/skill-gap/analyze", {
     }
   }
 
+  /* ---------- Career AI reply rendering ----------
+     The model answers in Markdown, so the reply is converted to real HTML and
+     users never see raw **, * or # characters.
+
+     Safety: the entire reply is HTML-escaped FIRST, so nothing produced by the
+     model can reach the DOM as markup. Only tags this code emits itself are
+     written, and a final allow-list pass drops anything unexpected as defence
+     in depth. Deliberately avoids lookbehind so older Safari can parse it. */
+  const MD_ALLOWED_TAGS = ["p", "br", "div", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "strong", "em", "code", "a", "blockquote"];
+
+  function mdInline(input) {
+    const codes = [];
+    let s = String(input == null ? "" : input).replace(/`([^`]+)`/g, function (m, c) {
+      codes.push(c);
+      return "\u0000" + codes.length + "\u0000";
+    });
+    s = s.replace(/\[([^\]\n]{1,200})\]\(((?:https?:)?\/\/[^\s)]{1,400})\)/gi, function (m, txt, url) {
+      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + txt + "</a>";
+    });
+    s = s.replace(/\*\*([^*\s][^*]*?)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/\*([^*\s][^*]*?)\*/g, "<em>$1</em>");
+    s = s.replace(/(^|[\s(])_([^_\s][^_]*?\S)_(?![\w])/g, "$1<em>$2</em>");
+    s = s.replace(/\u0000(\d+)\u0000/g, function (m, n) {
+      return "<code>" + (codes[+n - 1] || "") + "</code>";
+    });
+    return s;
+  }
+
+  function mdIsBullet(l) { return /^ *\s*[-*+]\s+\S/.test(l.replace(/\t/g, "  ")); }
+  function mdIsOrdered(l) { return /^ *\s*\d{1,3}[.)]\s+\S/.test(l.replace(/\t/g, "  ")); }
+  function mdIsHeading(l) { return /^#{1,6}\s+\S/.test(l); }
+  function mdIndent(l) { const m = l.replace(/\t/g, "  ").match(/^ */); return m ? m[0].length : 0; }
+
+  function mdParseBlocks(lines) {
+    const out = [];
+    const n = lines.length;
+    let i = 0;
+    const isList = (l) => mdIsBullet(l) || mdIsOrdered(l);
+
+    function parseList(baseIndent) {
+      const ordered = mdIsOrdered(lines[i]);
+      const tag = ordered ? "ol" : "ul";
+      const strip = ordered ? /^\s*\d{1,3}[.)]\s+/ : /^\s*[-*+]\s+/;
+      const items = [];
+      while (i < n) {
+        const line = lines[i];
+        if (!line.trim()) {
+          let j = i;
+          while (j < n && !lines[j].trim()) j++;
+          if (j < n && isList(lines[j]) && mdIndent(lines[j]) >= baseIndent) { i = j; continue; }
+          break;
+        }
+        if (!isList(line)) {
+          if (mdIndent(line) > baseIndent && items.length) {
+            items[items.length - 1] += "<br>" + mdInline(line.trim());
+            i++;
+            continue;
+          }
+          break;
+        }
+        const ind = mdIndent(line);
+        if (ind < baseIndent) break;
+        if (ind > baseIndent) {
+          if (!items.length) items.push("");
+          const before = i;
+          const nested = parseList(ind);
+          if (i === before) {
+            items[items.length - 1] += mdInline(line.trim());
+            i++;
+          } else {
+            items[items.length - 1] += nested;
+          }
+          continue;
+        }
+        if (mdIsOrdered(line) !== ordered) break;
+        items.push(mdInline(line.replace(strip, "")));
+        i++;
+      }
+      let html = "<" + tag + ">";
+      for (let k = 0; k < items.length; k++) html += "<li>" + items[k] + "</li>";
+      return html + "</" + tag + ">";
+    }
+
+    while (i < n) {
+      const line = lines[i];
+      if (!line.trim()) { i++; continue; }
+
+      if (mdIsHeading(line)) {
+        const hashes = line.match(/^#+/) || ["#"];
+        const lv = Math.min(Math.max(hashes[0].length, 1), 6);
+        out.push("<h" + lv + ">" + mdInline(line.slice(hashes[0].length).trim()) + "</h" + lv + ">");
+        i++;
+        continue;
+      }
+
+      if (/^\s*(?:>|&gt;)/.test(line)) {
+        const quoted = [];
+        while (i < n && /^\s*(?:>|&gt;)/.test(lines[i])) {
+          quoted.push(lines[i].replace(/^\s*(?:>|&gt;)\s?/, "").trim());
+          i++;
+        }
+        out.push("<blockquote><p>" + quoted.map(mdInline).join("<br>") + "</p></blockquote>");
+        continue;
+      }
+
+      if (isList(line)) {
+        const before = i;
+        out.push(parseList(mdIndent(line)));
+        if (i === before) { out.push("<p>" + mdInline(line.trim()) + "</p>"); i++; }
+        continue;
+      }
+
+      const para = [];
+      while (i < n && lines[i].trim() && !mdIsHeading(lines[i]) && !isList(lines[i])) {
+        para.push(lines[i].trim());
+        i++;
+      }
+      out.push("<p>" + para.map(mdInline).join("<br>") + "</p>");
+    }
+
+    return out.join("");
+  }
+
+  function mdSanitize(html) {
+    return html.replace(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, function (m, slash, tag, attrs) {
+      const t = tag.toLowerCase();
+      if (MD_ALLOWED_TAGS.indexOf(t) === -1) return "";
+      if (t === "a" && !slash) {
+        const href = (attrs.match(/\shref="([^"]*)"/) || [])[1] || "";
+        if (!/^https?:\/\//i.test(href)) return "";
+      }
+      return m;
+    });
+  }
+
+  function renderMarkdown(src) {
+    const text = String(src == null ? "" : src).replace(/\r\n?/g, "\n");
+    return mdSanitize(mdParseBlocks(esc(text).split("\n")));
+  }
+
   function pushBot(html) {
     appendBubble("bot", `<div class="msg__orb">✦</div><div class="msg__bubble">${html}</div>`);
   }
@@ -2028,7 +2168,7 @@ const res = await authApi("/api/ai/chat", {
     t.remove();
     if (res.ok && res.data && res.data.data && res.data.data.reply) {
       chatHistory.push({ role: "assistant", content: res.data.data.reply });
-      pushBot(`<p>${esc(res.data.data.reply).replace(/\n/g, "<br>")}</p>`);
+      pushBot(`<div class="msg__md">${renderMarkdown(res.data.data.reply)}</div>`);
     } else {
       chatHistory.pop();
       const hint = apiErrorHint(res);
