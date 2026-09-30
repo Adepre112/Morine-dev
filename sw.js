@@ -109,8 +109,8 @@ self.addEventListener("fetch", (event) => {
             .then((hit) => hit || new Response(
               "<!doctype html><meta charset=\"utf-8\"><title>Morine - offline</title>" +
               "<body style=\"font-family:system-ui;background:#080c1b;color:#e6e9f5;padding:40px\">" +
-              "<h1>You are offline</h1>" +
-              "<p>Morine needs an internet connection to sign in, load your Profile, search " +
+              "<h1>You're offline</h1>" +
+              "<p>Please check your internet connection. Morine needs to be online to sign in, load your Profile, search " +
               "Opportunities and run AI features.</p></body>",
               { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
             ));

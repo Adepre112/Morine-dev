@@ -190,7 +190,7 @@
           </div>
 
 <div class="live-note">
-             <strong>Live data.</strong> <span class="pill" id="serverStatus">Checking&hellip;</span> Sign in to sync your profile; until then it stays on this device.
+             <strong>Connection:</strong> <span class="pill" id="serverStatus">Checking&hellip;</span> Sign in to save your profile to your account; until then it stays on this device.
            </div>
         </section>
 
@@ -262,7 +262,7 @@
 
               <div class="cvlab__actions">
                 <button class="btn btn--primary" id="cvAnalyzeBtn">Analyze CV</button>
-                <span class="cvlab__note">Server-side analysis</span>
+                <span class="cvlab__note">AI analysis</span>
               </div>
             </div>
 
@@ -270,7 +270,7 @@
               <div class="cvlab__empty">
                 <span class="cvlab__empty-ic">📄</span>
                 <p>Your CV analysis will appear here.</p>
-                <p class="mute">Upload your CV (PDF or DOCX), add a job description if you have one, then press Analyze. The secure backend parses and grades it with your configured AI provider.</p>
+                <p class="mute">Upload your CV (PDF or DOCX), add a job description if you have one, then press Analyze. Morine will review your CV, point out what to fix and suggest improvements.</p>
               </div>
             </div>
           </div>
@@ -310,7 +310,7 @@
               </div>
               <div class="cvlab__actions">
                 <button class="btn btn--primary" id="sgAnalyzeBtn">Analyze skill gap</button>
-                <span class="cvlab__note">Server-side analysis</span>
+                <span class="cvlab__note">AI analysis</span>
               </div>
             </div>
 
@@ -340,7 +340,7 @@
             </div>
             <div class="cvlab__actions">
               <button class="btn btn--primary" id="cpAnalyzeBtn">Discover my career path</button>
-              <span class="cvlab__note">Server-side analysis &middot; saved to your account</span>
+              <span class="cvlab__note">AI analysis &middot; saved to your account</span>
             </div>
           </div>
 
@@ -357,20 +357,20 @@
           <div class="app-h">
             <div>
               <h1 class="app-h__title">AI Career Profile</h1>
-              <p class="app-h__sub">An AI interpretation of the information you have already provided in Profile, CV and Skill Gap.</p>
+              <p class="app-h__sub">A summary Morine's AI puts together from the details you've already added in Profile, CV and Skill Gap.</p>
             </div>
           </div>
 
           <div class="aip__note">
-            <strong>This is an AI-generated interpretation, not your Profile.</strong>
-            <span>Your Profile stays the editable source of truth. Everything below is AI inference drawn only from data you have provided, and it can never add qualifications, experience or skills you did not supply.</span>
+            <strong>This is an AI summary, not your Profile.</strong>
+            <span>Your Profile is the part you can edit. Everything below comes only from the information you have given us — Morine will never add qualifications, experience or skills you did not provide.</span>
           </div>
 
           <div class="aip__sources card" id="aipSources"></div>
 
           <div class="aip__actions">
             <button class="btn btn--primary" id="aipGenerateBtn">Generate AI Career Profile</button>
-            <span class="cvlab__note">Regenerates from your latest Profile, CV and Skill Gap</span>
+            <span class="cvlab__note">Creates a fresh version from your latest Profile, CV and Skill Gap</span>
           </div>
 
           <div class="aip__out" id="aipOut"></div>
@@ -409,7 +409,7 @@
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
               </button>
             </form>
-<p class="chat__hint">Answers come from your configured AI provider through the secure backend — sign in to start.</p>
+                <p class="chat__hint">Answers come from Morine's AI. Sign in to start.</p>
             </div>
           </section>
 
@@ -443,7 +443,7 @@
                 </div>
                 <div class="cvlab__actions">
                   <button class="btn btn--primary" id="ipGenerateBtn">Generate preparation</button>
-                  <span class="cvlab__note">Server-side AI generation</span>
+                  <span class="cvlab__note">AI-generated for you</span>
                 </div>
               </div>
 
@@ -526,7 +526,7 @@
                 <button type="submit" class="btn btn--primary" id="pfSaveBtn">Save profile</button>
                 <span class="profile__status" id="pfStatus"></span>
               </div>
-              <p class="pf__note">Saved on this device as a draft. The data structure is ready to sync to the MongoDB-backed profile API once you sign in.</p>
+              <p class="pf__note">Saved on this device as a draft. Sign in to save it to your account.</p>
             </div>
           </form>
         </section>
@@ -546,7 +546,7 @@
                 </svg>
               </span>
               <h1 class="auth-card__title">Sign in to Morine</h1>
-              <p class="modal__sub">Sign in to sync your profile across devices.</p>
+              <p class="modal__sub">Sign in to save your profile across your devices.</p>
             </div>
 
             <form class="auth-form" id="appSigninForm" novalidate>
@@ -557,7 +557,7 @@
             </form>
 
             <p class="auth-card__skip">Don't have an account? <a href="#/signup" class="link">Create an account</a></p>
-            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip" class="link">Try again later</button>.</p>
+            <p class="auth-card__skip">Can't connect right now? <button type="button" id="authSkip" class="link">Try again later</button>.</p>
           </div>
         </section>
 
@@ -588,7 +588,7 @@
             </form>
 
             <p class="auth-card__skip">Already have an account? <a href="#/signin" class="link">Sign in</a></p>
-            <p class="auth-card__skip">Server not reachable? <button type="button" id="authSkip2" class="link">Try again later</button>.</p>
+            <p class="auth-card__skip">Can't connect right now? <button type="button" id="authSkip2" class="link">Try again later</button>.</p>
           </div>
         </section>
 
@@ -748,8 +748,8 @@
 
   <!-- Offline notice: Morine's AI and job features need the backend. -->
   <div class="netbar" id="netbar" role="status" hidden>
-    <strong>You are offline.</strong>
-    <span>Sign in, Opportunities, CV analysis, Career Path and AI features need an internet connection. Your saved Profile is not shown offline.</span>
+    <strong>You're offline.</strong>
+    <span>Please check your internet connection. Some features need to be online, and your saved Profile isn't shown while offline.</span>
   </div>
 
   <!-- Install prompt, shown only when the browser offers installation. -->

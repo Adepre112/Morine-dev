@@ -108,7 +108,7 @@ class ProfileController {
       if (!REMOVABLE_FIELDS.includes(field)) {
         return res.status(400).json({
           success: false,
-          error: "That profile field cannot be removed.",
+          error: "That part of your profile can't be removed.",
         });
       }
 
@@ -122,7 +122,7 @@ class ProfileController {
       if (!profile) {
         return res.status(404).json({
           success: false,
-          error: "Profile not found.",
+          error: "We couldn't find your profile. Please try again.",
         });
       }
 
@@ -148,13 +148,13 @@ class ProfileController {
       if (!skill) {
         return res.status(400).json({
           success: false,
-          error: "A skill name is required.",
+          error: "Please enter a skill name.",
         });
       }
       if (skill.length > 100) {
         return res.status(400).json({
           success: false,
-          error: "That skill name is too long.",
+          error: "That skill name is too long. Please shorten it.",
         });
       }
 
@@ -162,7 +162,7 @@ class ProfileController {
       if (!profile) {
         return res.status(404).json({
           success: false,
-          error: "Profile not found.",
+          error: "We couldn't find your profile. Please try again.",
         });
       }
 
@@ -174,7 +174,7 @@ class ProfileController {
       if (profile.skills.length === before) {
         return res.status(404).json({
           success: false,
-          error: "That skill was not in your profile.",
+          error: "That skill isn't in your profile.",
         });
       }
 

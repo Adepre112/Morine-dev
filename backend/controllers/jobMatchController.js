@@ -11,15 +11,15 @@ async function analyze(req, res) {
   try {
     const userId = req.user._id;
     const job = req.body.job;
-    if (!job || typeof job !== "object") return res.status(400).json({ success: false, error: "Job information is required." });
+    if (!job || typeof job !== "object") return res.status(400).json({ success: false, error: "Please add the job details first." });
     const title = (job.title || "").toString().trim();
-    if (!title) return res.status(400).json({ success: false, error: "Job title is required." });
+    if (!title) return res.status(400).json({ success: false, error: "Please add the job title." });
 
     const profile = await CareerProfile.findOne({ userId }).lean();
     if (!profile || (!profile.targetRole && !profile.skills?.length && !profile.experience)) {
       // Require at least targetRole or some context
       if (!profile || !profile.targetRole) {
-        return res.status(400).json({ success: false, error: "Complete your Career Profile with a target role to get personalized job matches." });
+        return res.status(400).json({ success: false, error: "Add a target role to your Career Profile to get job matches." });
       }
     }
 
@@ -27,9 +27,9 @@ async function analyze(req, res) {
     let cvAnalysis = null;
     if (req.body.cvId) {
       const cvId = req.body.cvId.toString().trim();
-      if (!isValidObjectId(cvId)) return res.status(404).json({ success: false, error: "CV not found." });
+      if (!isValidObjectId(cvId)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
       const cv = await CV.findOne({ _id: cvId, userId });
-      if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+      if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
       cvText = cv.extractedText || "";
       cvAnalysis = cv.analysis || null;
     }
@@ -37,9 +37,9 @@ async function analyze(req, res) {
     let skillGap = null;
     if (req.body.skillGapId) {
       const sgId = req.body.skillGapId.toString().trim();
-      if (!isValidObjectId(sgId)) return res.status(404).json({ success: false, error: "Skill-gap analysis not found." });
+      if (!isValidObjectId(sgId)) return res.status(404).json({ success: false, error: "We couldn't find that skill gap analysis. Please refresh the page and try again." });
       skillGap = await SkillGapAnalysis.findOne({ _id: sgId, userId });
-      if (!skillGap) return res.status(404).json({ success: false, error: "Skill-gap analysis not found." });
+      if (!skillGap) return res.status(404).json({ success: false, error: "We couldn't find that skill gap analysis. Please refresh the page and try again." });
     } else {
       // Optionally retrieve latest relevant skill-gap for targetRole
       const targetRole = (profile?.targetRole || "").trim();
@@ -86,7 +86,7 @@ async function analyze(req, res) {
     return res.status(201).json({ success: true, data: { match: doc, analysis: result } });
   } catch (e) {
     const code = e.statusCode || 500;
-    return res.status(code).json({ success: false, error: e.message || "Job match failed.", code: e.code || undefined });
+    return res.status(code).json({ success: false, error: e.message || "We couldn't match you to jobs. Please try again.", code: e.code || undefined });
   }
 }
 
@@ -103,17 +103,17 @@ async function list(req, res) {
 }
 
 async function getOne(req, res) {
-  if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "Match not found." });
+  if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that job match. Please refresh the page and try again." });
   const doc = await JobMatch.findOne({ _id: req.params.id, userId: req.user._id });
-  if (!doc) return res.status(404).json({ success: false, error: "Match not found." });
+  if (!doc) return res.status(404).json({ success: false, error: "We couldn't find that job match. Please refresh the page and try again." });
   return res.json({ success: true, data: { match: doc } });
 }
 
 async function remove(req, res) {
-  if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "Match not found." });
+  if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that job match. Please refresh the page and try again." });
   const doc = await JobMatch.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
-  if (!doc) return res.status(404).json({ success: false, error: "Match not found." });
-  return res.json({ success: true, data: { message: "Match deleted." } });
+  if (!doc) return res.status(404).json({ success: false, error: "We couldn't find that job match. Please refresh the page and try again." });
+  return res.json({ success: true, data: { message: "Your job match was deleted." } });
 }
 
 module.exports = { analyze, list, getOne, remove };

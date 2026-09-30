@@ -48,6 +48,9 @@
   };
   const delay = ms => new Promise(r => setTimeout(r, ms));
 
+  /* Shared wording for every "we couldn't reach Morine" message the app shows. */
+  const NET_HINT = "We couldn't connect. Please check your internet connection and try again.";
+
   /* API base URL. js/config.js (loaded before this file) resolves it from a
      localStorage override, then the <meta name="api-base-url"> tag in
      app.html, then falls back to same-origin. See js/config.js for the full
@@ -89,12 +92,12 @@
     } catch (e) {
       clearTimeout(timeoutId);
       if (e.name === "AbortError") {
-        return { ok: false, status: 408, data: { error: "Request timed out. Please try again." } };
+        return { ok: false, status: 408, data: { error: "This is taking longer than expected. Please try again." } };
       }
       if (e.name === "TypeError" && e.message.includes("fetch")) {
-        return { ok: false, status: 0, data: { error: "Unable to connect to Morine's server. Please check your internet connection and try again." } };
+        return { ok: false, status: 0, data: { error: NET_HINT } };
       }
-      return { ok: false, status: 0, data: { error: "An unexpected error occurred. Please try again." } };
+      return { ok: false, status: 0, data: { error: NET_HINT } };
     }
   }
 
@@ -295,8 +298,9 @@
   ];
 
   function currentView() {
-    const hash = decodeURIComponent((location.hash || "").replace(/^#/, ""));
-    const hit = VIEWS.find(v => v.path === hash);
+    const fullHash = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    const pathOnly = fullHash.split("?")[0];
+    const hit = VIEWS.find(v => v.path === pathOnly);
     return hit ? hit.id : "overview";
   }
 
@@ -561,7 +565,7 @@
       let text;
       if (opts.isError) {
         // Errors must never be reported as "no results".
-        text = opts.errorText || "Live job listings are temporarily unavailable. Please try again.";
+        text = opts.errorText || "We couldn't load job opportunities. Please try again.";
       } else if (opts.filtered) {
         text = shown
           ? `Showing ${shown} of the ${total} roles on this page after filtering · Page ${pagination ? pagination.page : 1} of ${pagination ? pagination.totalPages : 1}`
@@ -579,7 +583,7 @@
       if (shown) {
         res.innerHTML = list.map(o => jobsMarkup(o)).join("");
       } else if (opts.isError) {
-        res.innerHTML = `<div class="cvlab__empty"><span class="cvlab__empty-ic">⚠</span><p>${esc(opts.errorText || "Something went wrong.")}<br>No jobs could be loaded right now.</p></div>`;
+        res.innerHTML = `<div class="cvlab__empty"><span class="cvlab__empty-ic">⚠</span><p>${esc(opts.errorText || "We couldn't load job opportunities. Please try again.")}</p></div>`;
       } else {
         res.innerHTML = `<div class="cvlab__empty"><span class="cvlab__empty-ic">🔍</span><p>${esc(opts.emptyText || "No opportunities found for this search. Try a different keyword or location.")}</p></div>`;
       }
@@ -736,7 +740,7 @@
     const seq = loadOpps._seq;
 
     if (!opts.silent) {
-      renderLoading(page > 1 ? `Loading page ${page} of Nigerian opportunities…` : "Searching Nigerian opportunities…");
+      renderLoading(page > 1 ? "Loading more opportunities…" : "Finding opportunities…");
     }
 
     const res = await fetchJobs({
@@ -750,8 +754,8 @@
 
     if (!res.ok) {
       const msg = res.status === 429
-        ? "Live job search has reached its request limit. Please wait a moment and press Search again."
-        : (res.error || "Live job listings are temporarily unavailable. Please try again.");
+        ? "You're searching a little too often. Please wait a moment and try again."
+        : (res.error || "We couldn't load job opportunities. Please try again.");
       renderOpps([], { page: 1, totalPages: 1, totalCount: 0 }, { isError: true, errorText: msg });
       return;
     }
@@ -844,25 +848,25 @@
   }
 
   function apiErrorHint(res) {
-    if (!res) return "Could not reach the backend. Please try again.";
-    if (res.status === 0) return "Unable to connect to Morine's server. Please check your internet connection and try again.";
-    if (res.status === 408) return "The request timed out. Please try again.";
+    if (!res) return NET_HINT;
+    if (res.status === 0) return NET_HINT;
+    if (res.status === 408) return "This is taking longer than expected. Please try again.";
     if (res.status === 401) return AUTH_HINT;
-    if (res.status === 403) return "Access denied. Please sign in again.";
-    if (res.status === 404) return "The requested resource was not found.";
-    if (res.status === 413) return "File too large. Maximum 5MB allowed.";
+    if (res.status === 403) return "You don't have permission to do this. Please sign in again.";
+    if (res.status === 404) return "We couldn't find that. Please go back and try again.";
+    if (res.status === 413) return "Your file is too large. Please upload a file smaller than 5MB.";
     if (res.status === 422) {
       const msg = String((res.data && (res.data.error || res.data.message)) || "").trim();
-      return msg || "The file could not be processed. Please ensure it's a valid PDF or DOCX.";
+      return msg || "We couldn't read that file. Please check it and try again.";
     }
-    if (res.status === 429) return "Too many requests. Please wait a moment and try again.";
-    if (res.status >= 500) return "Something went wrong on the server. Please try again later.";
+    if (res.status === 429) return "You've made a lot of requests. Please wait a moment and try again.";
+    if (res.status >= 500) return "Something went wrong. Please try again.";
     const msg = String((res.data && (res.data.error || res.data.message)) || "").trim();
-    return msg || "The request failed. Please try again.";
+    return msg || "Something went wrong. Please try again.";
   }
 
   function authRequiredMarkup(action) {
-    return `<strong>Sign in required</strong>${esc(action)} uses your secure backend. Create a free account or sign in, then try again.<br><a class="btn btn--primary btn--sm" style="margin-top:12px" href="#/signin">Sign in</a>`;
+    return `<strong>Sign in required</strong>${esc(action)} needs your account. Create a free account or sign in, then try again.<br><a class="btn btn--primary btn--sm" style="margin-top:12px" href="#/signin">Sign in</a>`;
   }
 
   function errorMarkup(msg) {
@@ -910,7 +914,7 @@
     const el = document.createElement("div");
     el.className = "cvlab__demo";
     el.innerHTML = `
-      <div class="cvlab__banner">AI analysis · ${esc(a._model || "your configured provider")}</div>
+      <div class="cvlab__banner">AI analysis</div>
       <div class="cvlab__scores">
         <div class="cvlab__score cvlab__score--a"><strong>${n(a.overallScore)}</strong><span>Overall score</span></div>
         <div class="cvlab__score cvlab__score--b"><strong>${skillCount}</strong><span>Skills found</span></div>
@@ -923,7 +927,7 @@
       ${bullets ? `<div class="cvlab__group-title">Bullet rewrites</div>${bullets}` : ""}
       ${kw.length ? `<div class="cvlab__group-title">Keywords to add</div><div class="job-card__tags">${kw.map(k => `<span class="small-tag">${esc(k)}</span>`).join("")}</div>` : ""}
       ${jmHtml}
-      <p class="mute" style="font-size:.8rem">Generated securely by your backend AI provider.</p>`;
+      <p class="mute" style="font-size:.8rem">Generated securely by Morine's AI.</p>`;
     out.appendChild(el);
   }
 
@@ -1058,7 +1062,7 @@
 
       analysisHtml = `
         <div class="cvlab__demo">
-          <div class="cvlab__banner">AI analysis · ${esc(a._model || "your configured provider")}</div>
+          <div class="cvlab__banner">AI analysis</div>
           <div class="cvlab__scores">
             <div class="cvlab__score cvlab__score--a"><strong>${n(a.overallScore)}</strong><span>Overall score</span></div>
             <div class="cvlab__score cvlab__score--b"><strong>${skillCount}</strong><span>Skills found</span></div>
@@ -1071,7 +1075,7 @@
           ${bullets ? `<div class="cvlab__group-title">Bullet rewrites</div>${bullets}` : ""}
           ${kw.length ? `<div class="cvlab__group-title">Keywords to add</div><div class="job-card__tags">${kw.map(k => `<span class="small-tag">${esc(k)}</span>`).join("")}</div>` : ""}
           ${jmHtml}
-          <p class="mute" style="font-size:.8rem">Generated securely by your backend AI provider.</p>
+          <p class="mute" style="font-size:.8rem">Generated securely by Morine's AI.</p>
         </div>`;
     }
 
@@ -1152,7 +1156,7 @@
   async function openCv(id) {
     if (!id) return;
     const full = await loadCvFull(id);
-    if (!full) { toast("That CV could not be opened.", false); return; }
+    if (!full) { toast("We couldn't open that CV. Please try again.", false); return; }
     setCurrentCv(full);
   }
 
@@ -1188,10 +1192,10 @@
       cvAll = cvAll.filter(c => c._id !== id);
       if (currentCv && currentCv._id === id) currentCv = null;
       await refreshCvLibrary(cvAll.length ? cvAll[0]._id : null);
-      toast("CV deleted", true);
+      toast("Your CV was deleted.", true);
     } catch (e) {
-      renderCvError("Could not reach the backend. Please try again.");
-      toast("Could not reach the backend. Please try again.", false);
+      renderCvError(NET_HINT);
+      toast(NET_HINT, false);
     } finally {
       cvBusy = false;
     }
@@ -1231,14 +1235,14 @@
         if (!del || !del.ok) {
           // The new CV is saved but the old one is still there. Say so plainly
           // instead of implying the replacement finished.
-          renderCvError("New CV uploaded, but the previous CV could not be removed. Use Delete on its row to remove it.");
-          toast("New CV uploaded, but the previous CV could not be removed.", false);
+          renderCvError("Your new CV was saved, but we couldn't remove the old one. Use Delete on its row to remove it.");
+          toast("Your new CV was saved, but we couldn't remove the old one.", false);
         }
       }
       await refreshCvLibrary(newId);
-      toast("CV replaced successfully", true);
+      toast("Your CV has been replaced.", true);
     } catch (e) {
-      renderCvError("Could not reach the backend. Please try again.");
+      renderCvError(NET_HINT);
     } finally {
       if (btn) btn.classList.remove("is-loading");
     }
@@ -1271,12 +1275,12 @@
         currentCv.analysis = res.data.data.analysis;
         currentCv.jobDescription = target;
         renderCvManager();
-        toast("CV analysis ready", true);
+        toast("Your CV has been analyzed.", true);
       } else {
         renderCvError(apiErrorHint(res));
       }
     } catch (e) {
-      renderCvError("Could not reach the backend. Please try again.");
+      renderCvError(NET_HINT);
     } finally {
       if (btn) btn.classList.remove("is-loading");
     }
@@ -1291,12 +1295,12 @@
       if (res.ok && res.data && res.data.data && res.data.data.optimizedContent) {
         currentCv.optimizedContent = res.data.data.optimizedContent;
         renderCvManager();
-        toast("CV optimized", true);
+        toast("Your CV has been improved.", true);
       } else {
         renderCvError(apiErrorHint(res));
       }
     } catch (e) {
-      renderCvError("Could not reach the backend. Please try again.");
+      renderCvError(NET_HINT);
     } finally {
       if (btn) btn.classList.remove("is-loading");
     }
@@ -1321,7 +1325,7 @@
       if (a.parentNode) a.parentNode.removeChild(a);
       URL.revokeObjectURL(url);
     }, 2000);
-    toast("Optimized CV downloaded", true);
+    toast("Your improved CV has been downloaded.", true);
   }
 
   /* CV upload transfers up to 5MB and parses it; a slow mobile connection can
@@ -1342,7 +1346,7 @@
   }
 
   function validateCvFile(file) {
-    if (!file) return { valid: false, error: "No file selected." };
+    if (!file) return { valid: false, error: "Please choose a CV file first." };
     /* Only PDF and DOCX are supported. Legacy .doc (application/msword) is
        deliberately excluded: the backend cannot parse it, so accepting it here
        would only produce a confusing failure later. The MIME type is treated as
@@ -1364,11 +1368,11 @@
       type.includes("pdf") ||
       type.includes("wordprocessingml");
     if (!isValidType) {
-      return { valid: false, error: "Unsupported file type. Please upload a PDF or DOCX file." };
+      return { valid: false, error: "Please upload your CV as a PDF or DOCX file." };
     }
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      return { valid: false, error: "File too large. Maximum 5MB allowed." };
+      return { valid: false, error: "Your CV is too large. Please upload a file smaller than 5MB." };
     }
     return { valid: true };
   }
@@ -1396,7 +1400,7 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     const file = $("#cvFile") && $("#cvFile").files && $("#cvFile").files[0];
     const target = ($("#cvJobDesc") || { value: "" }).value;
     if (!file) {
-      toast("Please select a CV file first.", false);
+      toast("Please choose a CV file first.", false);
       return;
     }
     const validation = validateCvFile(file);
@@ -1426,15 +1430,15 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
             // Keep the library in step with the new upload.
             cvAll = [cv].concat(cvAll.filter(x => x._id !== cv._id));
             setCurrentCv(cv);
-            toast("CV analysis ready", true);
+            toast("Your CV has been analyzed.", true);
           } else {
-            renderCvError("Analysis complete but failed to load CV.");
+            renderCvError("We couldn't load your CV. Please try again.");
           }
         } else {
           renderCvError(apiErrorHint(res));
         }
       } catch (e) {
-        renderCvError("Could not reach the backend. Please try again.");
+        renderCvError(NET_HINT);
       } finally {
         this.classList.remove("is-loading");
       }
@@ -1582,7 +1586,7 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     if (res && res.ok) {
       if (sgActiveId === id) { sgActiveId = null; sgEmptyState(); }
       await loadSgList();
-      toast("Skill gap result removed", true);
+      toast("Your skill gap result was deleted.", true);
     } else {
       toast(apiErrorHint(res), false);
     }
@@ -1621,7 +1625,7 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
       <div class="cvlab__actions" style="margin-top:16px">
         ${a._id ? `<button type="button" class="btn btn--danger btn--sm" data-sg-del="${esc(a._id)}" data-sg-role="${esc(a.targetRole || "this analysis")}">Clear this result</button>` : ""}
       </div>
-      <p class="mute" style="font-size:.8rem">AI gap analysis · ${esc(a._model || "your configured provider")}</p>`;
+      <p class="mute" style="font-size:.8rem">AI gap analysis</p>`;
     if (a._id) {
       sgActiveId = a._id;
       $$("[data-sg-del]", out).forEach(b =>
@@ -1632,8 +1636,8 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
   $("#sgAnalyzeBtn") && $("#sgAnalyzeBtn").addEventListener("click", function () {
     const target = ($("#sgTarget") || { value: "" }).value;
     if (!String(target).trim()) {
-      renderGapError("Choose a target role first — it anchors the gap analysis.");
-      toast("Pick a target role.", false);
+      renderGapError("Please choose a target role first — we use it to measure your gap.");
+      toast("Please choose a target role.", false);
       return;
     }
     this.classList.add("is-loading");
@@ -1647,7 +1651,7 @@ authApi("/api/skill-gap/analyze", {
         // The backend returns the stored record, so remember its id and pull
         // the authoritative saved list.
         sgActiveId = res.data.data.analysis._id || null;
-        toast("Gap analysis ready", true);
+        toast("Your skill gap analysis is ready.", true);
         loadSgList();
       } else {
         renderGapError(apiErrorHint(res));
@@ -1835,7 +1839,7 @@ authApi("/api/skill-gap/analyze", {
       // Re-read the saved list from the backend so the panel matches the server.
       await loadCpList();
       renderCpList();
-      toast("Career path result removed", true);
+      toast("Your career path was deleted.", true);
     } else {
       toast(apiErrorHint(res), false);
     }
@@ -1889,7 +1893,7 @@ authApi("/api/skill-gap/analyze", {
       cpPaths = [path].concat(cpPaths.filter(p => p._id !== path._id));
       renderCp(path);
       renderCpList();
-      toast("Career path ready", true);
+      toast("Your career path is ready.", true);
     } else {
       renderCpError(apiErrorHint(res));
     }
@@ -2014,7 +2018,7 @@ authApi("/api/skill-gap/analyze", {
         aipSetLoading(false);
         if (res.ok && res.data && res.data.data && res.data.data.profile) {
           renderAiProfile(res.data.data.profile, res.data.data.sourceUpdatedAt);
-          toast("AI Career Profile ready", true);
+          toast("Your AI Career Profile is ready.", true);
         } else {
           aipError(apiErrorHint(res));
         }
@@ -2182,7 +2186,7 @@ authApi("/api/skill-gap/analyze", {
 
   function chatErrorNode(msg) {
     if (msg === AUTH_HINT) {
-      return `<div class="msg__bubble msg__bubble--error"><p>Career AI needs your secure login before it can answer.</p>
+      return `<div class="msg__bubble msg__bubble--error"><p>Please sign in to use Career AI.</p>
         <div class="msg__signin"><button type="button" class="chat-cta" data-signin-cta>Sign in</button></div></div>`;
     }
     return `<div class="msg__bubble msg__bubble--error"><p>${esc(msg).replace(/\n/g, "<br>")}</p></div>`;
@@ -2326,7 +2330,7 @@ const res = await authApi("/api/ai/chat", {
         if (out) out.innerHTML = "";
       }
       await loadIpList();
-      toast("Interview session deleted", true);
+      toast("Your interview preparation was deleted.", true);
     } else {
       toast(apiErrorHint(res), false);
     }
@@ -2391,7 +2395,7 @@ const res = await authApi("/api/ai/chat", {
       <div class="cvlab__actions" style="margin-top:16px">
         ${a._id ? `<button type="button" class="btn btn--danger btn--sm" data-ip-del="${esc(a._id)}" data-ip-name="${esc((a.jobTitle ? a.targetRole + " — " + a.jobTitle : a.targetRole) || "this session")}">Delete this session</button>` : ""}
       </div>
-      <p class="mute" style="font-size:.8rem; margin-top:16px;">AI interview prep · ${esc(a._model || "your configured provider")}</p>`;
+      <p class="mute" style="font-size:.8rem; margin-top:16px;">AI interview preparation</p>`;
     if (a._id) {
       ipActiveId = a._id;
       $$("[data-ip-del]", out).forEach(b =>
@@ -2404,8 +2408,8 @@ const res = await authApi("/api/ai/chat", {
     const type = ($("#ipType") || { value: "general" }).value;
     const jobDesc = ($("#ipJobDesc") || { value: "" }).value;
     if (!String(target).trim()) {
-      renderIpError("Enter a target role first.");
-      toast("Pick a target role.", false);
+      renderIpError("Please choose a target role first.");
+      toast("Please choose a target role.", false);
       return;
     }
     this.classList.add("is-loading");
@@ -2420,7 +2424,7 @@ authApi("/api/interview-prep/analyze", {
       if (res.ok && res.data && res.data.data && res.data.data.preparation) {
         renderIpPreparation(res.data.data.preparation);
         ipActiveId = res.data.data.preparation._id || null;
-        toast("Interview preparation ready", true);
+        toast("Your interview preparation is ready.", true);
         loadIpList();
       } else {
         renderIpError(apiErrorHint(res));
@@ -2472,7 +2476,7 @@ authApi("/api/interview-prep/analyze", {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      toast("Saved on this device only — your account could not be updated.", false);
+      toast("Saved on this device only. We couldn't save it to your account yet.", false);
       return false;
     }
     return true;
@@ -2492,7 +2496,7 @@ authApi("/api/interview-prep/analyze", {
     if (pfStatus) {
       pfStatus.textContent = p.updatedAt
         ? "Saved " + new Date(p.updatedAt).toLocaleString()
-        : "Not saved yet — fill it in and hit Save.";
+        : "Not saved yet. Fill it in and select Save.";
     }
     renderOverview();
   }
@@ -2505,7 +2509,7 @@ authApi("/api/interview-prep/analyze", {
     syncProfileToServer().then(ok => {
       if (btn) btn.classList.remove("is-loading");
       if (pfStatus) pfStatus.textContent = "Saved " + new Date().toLocaleString();
-      toast(ok ? "Career profile saved to your account." : "Career profile saved on this device only.", ok);
+      toast(ok ? "Your career profile was saved to your account." : "Your career profile was saved on this device only.", ok);
     });
   });
 
@@ -2760,7 +2764,7 @@ authApi("/api/interview-prep/analyze", {
     if (pfStatus) {
       pfStatus.textContent = d.updatedAt
         ? "Saved " + new Date(d.updatedAt).toLocaleString()
-        : "Not saved yet — fill it in and hit Save.";
+        : "Not saved yet. Fill it in and select Save.";
     }
     Object.keys(PF_LIST_FIELDS).forEach(renderPfChips);
     syncPfClearButtons();
@@ -2864,7 +2868,7 @@ authApi("/api/interview-prep/analyze", {
   const _api = api;
   api = async function (p, opts) {
     if (navigator.onLine === false && typeof p === "string" && p.indexOf("/api/") === 0) {
-      return { ok: false, status: 0, data: { error: "You are offline. An internet connection is required for this action." } };
+      return { ok: false, status: 0, data: { error: "You're offline. Please check your internet connection and try again." } };
     }
     return _api(p, opts);
   };
@@ -2904,7 +2908,7 @@ authApi("/api/interview-prep/analyze", {
   function serverFlag(ok) {
     const el = $("#serverStatus");
     if (!el) return;
-    el.textContent = ok ? "Connected" : "Server unreachable";
+    el.textContent = ok ? "Connected" : "Offline";
     el.style.borderColor = ok ? "rgba(52,211,153,.45)" : "rgba(248,113,113,.45)";
     el.style.color = ok ? "var(--mint)" : "#f87171";
   }
@@ -2914,7 +2918,7 @@ authApi("/api/interview-prep/analyze", {
     renderUser();
     // Pull the signed-in user's stored profile into the form straight away.
     loadServerProfile();
-    toast("Signed in - " + (name || "there") + " ??", true);
+    toast("Welcome back, " + (name || "there") + ".", true);
     navigate("overview");
 
   }
@@ -3064,11 +3068,11 @@ authApi("/api/interview-prep/analyze", {
         $("#appForgotForm").hidden = true;
         $("#forgotSuccess").hidden = false;
       } else {
-        toast((res.data && (res.data.error || res.data.message)) || "Request failed. Please try again.", false);
+        toast((res.data && (res.data.error || res.data.message)) || "Something went wrong. Please try again.", false);
       }
     }).catch(() => {
       if (btn) btn.classList.remove("is-loading");
-      toast("Could not reach the backend. Please try again.", false);
+      toast(NET_HINT, false);
     });
   });
 
@@ -3100,12 +3104,12 @@ authApi("/api/interview-prep/analyze", {
       }).catch(() => {
         $("#appResetForm").hidden = true;
         $("#resetError").hidden = false;
-        $("#resetErrorMsg").textContent = "Could not verify the reset link. Please try again.";
+        $("#resetErrorMsg").textContent = "We couldn't check that reset link. Please try again.";
       });
     } else {
       $("#appResetForm").hidden = true;
       $("#resetError").hidden = false;
-      $("#resetErrorMsg").textContent = "No reset token provided. Please request a new password reset link.";
+      $("#resetErrorMsg").textContent = "This reset link is incomplete. Please request a new one.";
     }
   }
 
@@ -3141,7 +3145,7 @@ authApi("/api/interview-prep/analyze", {
       }
     }).catch(() => {
       if (btn) btn.classList.remove("is-loading");
-      toast("Could not reach the backend. Please try again.", false);
+      toast(NET_HINT, false);
     });
   });
 
@@ -3153,11 +3157,11 @@ authApi("/api/interview-prep/analyze", {
   };
 
   $("#authSkip") && $("#authSkip").addEventListener("click", function () {
-    toast("Server not reachable — sign in when available.", false);
+    toast("We couldn't connect right now. Please try again later.", false);
     navigate("overview");
   });
   $("#authSkip2") && $("#authSkip2").addEventListener("click", function () {
-    toast("Server not reachable — sign in when available.", false);
+    toast("We couldn't connect right now. Please try again later.", false);
     navigate("overview");
   });
 

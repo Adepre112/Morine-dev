@@ -30,7 +30,7 @@ function getAIClient() {
     const key = process.env.GROQ_API_KEY;
     if (!key) {
       const err = new Error(
-        "AI analysis is not configured. Missing GROQ_API_KEY. Set it in backend/.env or switch AI_PROVIDER=openai."
+        "The AI service isn't available right now. Please try again later."
       );
       err.statusCode = 503;
       err.code = "AI_NOT_CONFIGURED";
@@ -51,7 +51,7 @@ function getAIClient() {
     const key = process.env.OPENAI_API_KEY;
     if (!key) {
       const err = new Error(
-        "AI analysis is not configured. Missing OPENAI_API_KEY. Add it to backend/.env or switch AI_PROVIDER=groq."
+        "The AI service isn't available right now. Please try again later."
       );
       err.statusCode = 503;
       err.code = "AI_NOT_CONFIGURED";
@@ -131,7 +131,7 @@ function mapGeminiError(e) {
       (cls.includes("NotFound") && msg.includes("model") && msg.includes("not found")) ||
       (typeof parsedCode === "number" && parsedCode === 404 && msg.includes("model"));
     if (isAuth) {
-      const err = new Error("AI service authentication failed. Please contact support.");
+      const err = new Error("The AI service is temporarily unavailable. Please try again shortly.");
       err.statusCode = 503;
       err.code = "AI_AUTH_FAILED";
       throw err;
@@ -152,7 +152,7 @@ function mapGeminiError(e) {
       throw err;
     }
     if (isModelInvalid) {
-      const err = new Error("The configured AI model is not available. Please contact support.");
+      const err = new Error("The AI service is temporarily unavailable. Please try again shortly.");
       err.statusCode = 502;
       err.code = "AI_MODEL_UNAVAILABLE";
       throw err;
@@ -182,7 +182,7 @@ async function createGeminiChatCompletion(params) {
   const key = process.env.GEMINI_API_KEY;
   if (!key || key === "PASTE_THE_GEMINI_KEY_HERE") {
     const err = new Error(
-      "AI analysis is not configured. Missing GEMINI_API_KEY. Set it in backend/.env or switch AI_PROVIDER=groq/openai."
+      "The AI service isn't available right now. Please try again later."
     );
     err.statusCode = 503;
     err.code = "AI_NOT_CONFIGURED";
@@ -232,7 +232,7 @@ async function createGeminiChatCompletion(params) {
 
   let content = extractGeminiText(result);
   if (typeof content !== "string" || content.trim().length === 0) {
-    const err = new Error("AI returned an empty response. Please retry.");
+    const err = new Error("The AI service didn't send anything back. Please try again.");
     err.statusCode = 502;
     err.code = "AI_EMPTY_RESPONSE";
     throw err;
@@ -240,7 +240,7 @@ async function createGeminiChatCompletion(params) {
   if (params.response_format && params.response_format.type === "json_object") {
     content = normalizeGeminiJson(content);
     if (content.length === 0) {
-      const err = new Error("AI returned invalid JSON. Please retry.");
+      const err = new Error("The AI service sent an unexpected response. Please try again.");
       err.statusCode = 502;
       throw err;
     }
@@ -328,7 +328,7 @@ function mapOpenAIError(e) {
     throw err;
   }
   if (effectiveStatus === 401 || rawCode === "invalid_api_key" || rawType === "invalid_request_error" && rawMessage.includes("api key")) {
-    const err = new Error("AI service authentication failed. Please contact support.");
+    const err = new Error("The AI service is temporarily unavailable. Please try again shortly.");
     err.statusCode = 503;
     err.code = "AI_AUTH_FAILED";
     throw err;
@@ -368,7 +368,7 @@ async function analyzeCV(cvText, jobDescription, profile) {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    const err = new Error("AI returned invalid JSON. Please retry.");
+    const err = new Error("The AI service sent an unexpected response. Please try again.");
     err.statusCode = 502;
     throw err;
   }
@@ -526,7 +526,7 @@ async function analyzeSkillGap(input) {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    const err = new Error("AI returned invalid JSON. Please retry.");
+    const err = new Error("The AI service sent an unexpected response. Please try again.");
     err.statusCode = 502;
     throw err;
   }
@@ -645,7 +645,7 @@ async function analyzeJobMatch({ profile, cvText, cvAnalysis, skillGap, job }) {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    const err = new Error("AI returned invalid JSON. Please retry.");
+    const err = new Error("The AI service sent an unexpected response. Please try again.");
     err.statusCode = 502;
     throw err;
   }
@@ -750,7 +750,7 @@ async function analyzeCareerPath(input) {
   }
   const raw = completion.choices[0]?.message?.content || "{}";
   let parsed;
-  try { parsed = JSON.parse(raw); } catch { const err=new Error("AI returned invalid JSON. Please retry."); err.statusCode=502; throw err; }
+  try { parsed = JSON.parse(raw); } catch { const err=new Error("The AI service sent an unexpected response. Please try again."); err.statusCode=502; throw err; }
   return {
     targetRole: String(parsed.targetRole || input.targetRole || ""),
     startingPoint: String(parsed.startingPoint || ""),
@@ -872,7 +872,7 @@ async function analyzeInterviewPreparation(input){
   }
  }
  const raw=completion.choices[0]?.message?.content||"{}";
- let parsed; try{ parsed=JSON.parse(raw);}catch{ const err=new Error("AI returned invalid JSON. Please retry."); err.statusCode=502; throw err; }
+ let parsed; try{ parsed=JSON.parse(raw);}catch{ const err=new Error("The AI service sent an unexpected response. Please try again."); err.statusCode=502; throw err; }
  return {
   targetRole:String(parsed.targetRole||input.targetRole||""),
   jobTitle:String(parsed.jobTitle||input.job?.title||""),
@@ -995,7 +995,7 @@ async function generateCareerProfile(input) {
   }
   const raw = completion.choices[0]?.message?.content || "{}";
   let parsed;
-  try { parsed = JSON.parse(raw); } catch { const err = new Error("AI returned invalid JSON. Please retry."); err.statusCode = 502; throw err; }
+  try { parsed = JSON.parse(raw); } catch { const err = new Error("The AI service sent an unexpected response. Please try again."); err.statusCode = 502; throw err; }
   const str = v => String(v == null ? "" : v);
   return {
     headline: str(parsed.headline),
@@ -1059,7 +1059,7 @@ ${profileBlock}`;
 
   const reply = (completion?.choices?.[0]?.message?.content || "").trim();
   if (!reply) {
-    const err = new Error("Career AI returned an empty response. Please retry.");
+    const err = new Error("The AI service didn't send anything back. Please try again.");
     err.statusCode = 502;
     err.code = "AI_EMPTY_RESPONSE";
     throw err;

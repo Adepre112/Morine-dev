@@ -30,20 +30,20 @@
   <p class="legal__updated">This page describes what Morine actually does with your information.</p>
 
   <h2>Information you provide</h2>
-  <p>When you create an account, Morine stores the email address and password you supply. The password is hashed before storage; Morine does not keep your plain-text password. You can also add career information to your Profile, upload a CV, and save analyses you generate. This information is stored in the application's database so it stays available when you sign in again.</p>
+  <p>When you create an account, Morine stores the email address and password you supply. Your password is stored in a protected form — Morine never keeps a readable copy of it. You can also add career information to your Profile, upload a CV, and save analyses you generate. This information is saved to your account so it is still there when you sign in again.</p>
 
   <h2>How your information is used</h2>
   <ul>
-    <li>Career information you enter in Profile, along with an uploaded CV and any analyses you have generated, is sent to the configured AI provider when you request an analysis, so results are based on your own data.</li>
-    <li>Your information is used to generate the outputs shown to you: CV analysis and optimization, skill gap analysis, job matching, career paths, interview preparation and AI Career Profile insights.</li>
-    <li>AI features are instructed not to invent qualifications, experience, employers, certifications or skills you have not supplied. If data is missing, the feature is expected to say so rather than assume.</li>
+    <li>Career information you enter in Profile, along with an uploaded CV and any analyses you have generated, is sent to Morine's AI service when you ask for an analysis, so the results are based on your own data.</li>
+    <li>Your information is used to generate the results shown to you: CV analysis and improvement, skill gap analysis, job matching, career paths, interview preparation and AI Career Profile insights.</li>
+    <li>Morine's AI is instructed not to invent qualifications, experience, employers, certifications or skills you have not supplied. If information is missing, it says so rather than guessing.</li>
   </ul>
 
   <h2>Account session</h2>
-  <p>To keep you signed in, Morine stores a session token in your browser's local storage and a refresh token in an HTTP-only cookie. The HTTP-only cookie cannot be read by scripts running on the page. The refresh cookie is set to expire after 30 days, is marked secure on production deployments, and is restricted to same-site requests.</p>
+  <p>To keep you signed in, Morine keeps one sign-in key in your browser's storage and a second one in a cookie that scripts on this page cannot read. The cookie expires after 30 days, is sent only over a secure connection on the live site, and only to this website.</p>
 
   <h2>Job listings</h2>
-  <p>When you use Opportunities, Morine requests job listing data from the job listings API configured on the server. Morine is configured to return listings for Nigeria. The API key for that service is kept on the server and is never sent to the browser.</p>
+  <p>When you use Opportunities, Morine loads job listings from a job listings service it is set up to use, showing listings for Nigeria. The access details for that service stay on Morine's side and are never sent to your browser.</p>
 
   <h2>What is not collected</h2>
   <p>Morine does not collect payment details, and the application does not include advertising or third-party tracking scripts.</p>

@@ -48,7 +48,7 @@ async function authMiddleware(req, res, next) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       success: false,
-      error: "Authentication required. Please sign in.",
+      error: "Please sign in to continue.",
     });
   }
 
@@ -61,7 +61,7 @@ async function authMiddleware(req, res, next) {
     if (!user) {
       return res.status(401).json({
         success: false,
-        error: "User not found. Please sign in again.",
+        error: "Your session has ended. Please sign in again.",
       });
     }
 
@@ -71,13 +71,13 @@ async function authMiddleware(req, res, next) {
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        error: "Session expired. Please sign in again.",
+        error: "Your session has expired. Please sign in again.",
         code: "ACCESS_TOKEN_EXPIRED",
       });
     }
     return res.status(401).json({
       success: false,
-      error: "Invalid authentication token.",
+      error: "Your session has expired. Please sign in again.",
     });
   }
 }

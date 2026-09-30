@@ -19,24 +19,129 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 /* Email transporter - lazily initialized */
 let emailTransporter = null;
 
+/* One-shot warnings so a misconfigured deployment logs the reason once per
+   process instead of once per forgot-password request (which a caller could
+   otherwise use to flood the log). */
+let warnedMissingEnv = false;
+let warnedBadPort = false;
+let warnedBadFrom = false;
+
+/* Failure classes the log must be able to tell apart. */
+const EMAIL_STATUS = {
+  NOT_CONFIGURED: "NOT_CONFIGURED",   // env vars absent
+  CONNECTION_FAILED: "CONNECTION_FAILED", // host unreachable / timeout / TLS
+  AUTH_FAILED: "AUTH_FAILED",         // SMTP rejected user/pass (App Password?)
+  ENVELOPE_REJECTED: "ENVELOPE_REJECTED", // MAIL FROM / RCPT TO rejected (bad From or recipient)
+  MESSAGE_REJECTED: "MESSAGE_REJECTED",   // DATA phase rejected
+  SEND_FAILED: "SEND_FAILED",         // anything else inside sendMail
+  SENT: "SENT",                       // provider accepted the message
+};
+
+/** Maps a Nodemailer error onto one of EMAIL_STATUS.
+ *
+ *  Only `error.code`, `error.responseCode` and `error.response` are read.
+ *  `error.command` is deliberately NEVER touched: Nodemailer stores the raw
+ *  SMTP command there, and for AUTH that command is `AUTH PLAIN <base64>` whose
+ *  payload is the username and password - logging it would leak EMAIL_PASS. */
+function classifySmtpError(error) {
+  const code = error && error.code ? String(error.code) : "";
+  const rc = error && typeof error.responseCode === "number" ? error.responseCode : null;
+
+  if (code === "EAUTH" || rc === 530 || rc === 534 || rc === 535) return EMAIL_STATUS.AUTH_FAILED;
+  if (code === "ECONNECTION" || code === "ETIMEDOUT" || code === "ESOCKET" ||
+      code === "ENOTFOUND" || code === "ECONNREFUSED" || code === "ECONNRESET" ||
+      code === "EPIPE") {
+    return EMAIL_STATUS.CONNECTION_FAILED;
+  }
+  if (code === "EENVELOPE" || rc === 550 || rc === 551 || rc === 552 || rc === 553) {
+    return EMAIL_STATUS.ENVELOPE_REJECTED;
+  }
+  if (code === "EMESSAGE" || rc === 554) return EMAIL_STATUS.MESSAGE_REJECTED;
+  return EMAIL_STATUS.SEND_FAILED;
+}
+
+/** Redacts anything that could be a secret or an address from a log detail. */
+function redactForLog(text) {
+  return String(text || "")
+    .replace(/[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+/g, "[address]")
+    // long base64/hex runs: covers an AUTH blob and a reset token
+    .replace(/[A-Za-z0-9+/=]{24,}/g, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+/** A single log line that names the failure class an operator can act on. */
+function smtpDiag(error) {
+  const parts = ["class=" + classifySmtpError(error)];
+  if (error && error.code) parts.push("code=" + error.code);
+  if (error && typeof error.responseCode === "number") parts.push("smtp=" + error.responseCode);
+  if (error && error.response) parts.push("reply=" + JSON.stringify(redactForLog(error.response)));
+  else if (error && error.message) parts.push("detail=" + JSON.stringify(redactForLog(error.message)));
+  return parts.join(" ");
+}
+
+function maskEmail(email) {
+  const s = String(email || "");
+  const at = s.indexOf("@");
+  if (at <= 0) return "[address]";
+  return s[0] + "***" + s.slice(at);
+}
+
 function getEmailTransporter() {
   if (emailTransporter) return emailTransporter;
 
   const host = process.env.EMAIL_HOST;
-  const port = parseInt(process.env.EMAIL_PORT || "587", 10);
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
+  const rawPort = (process.env.EMAIL_PORT || "").trim();
+  const port = rawPort === "" ? 587 : parseInt(rawPort, 10);
 
   if (!host || !user || !pass) {
+    if (!warnedMissingEnv) {
+      warnedMissingEnv = true;
+      // Names only - never the values. This is the line to look for in the
+      // Render log when a reset email never arrives.
+      const missing = ["EMAIL_HOST", "EMAIL_USER", "EMAIL_PASS"].filter((k) => !process.env[k]);
+      console.warn("[Auth][email] " + EMAIL_STATUS.NOT_CONFIGURED +
+        " - missing " + missing.join(", ") + "; reset email cannot be sent");
+    }
     return null;
+  }
+
+  let smtpPort = port;
+  if (!Number.isFinite(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+    if (!warnedBadPort) {
+      warnedBadPort = true;
+      console.warn("[Auth][email] EMAIL_PORT is not a valid port number; falling back to 587");
+    }
+    smtpPort = 587;
+  }
+
+  if (!warnedBadFrom && process.env.EMAIL_FROM && !/@/.test(process.env.EMAIL_FROM)) {
+    warnedBadFrom = true;
+    console.warn("[Auth][email] EMAIL_FROM does not look like a mailbox; the provider may reject it");
   }
 
   emailTransporter = nodemailer.createTransport({
     host,
-    port,
-    secure: port === 465,
+    port: smtpPort,
+    // 465 = implicit TLS. 587 = plain then STARTTLS, which Nodemailer upgrades
+    // to automatically before AUTH when the server advertises it.
+    secure: smtpPort === 465,
     auth: { user, pass },
+    // Without these a blocked or unreachable SMTP port hangs for Nodemailer's
+    // default 2 minutes before reporting anything, and the failure is
+    // indistinguishable from a slow send. 15s makes CONNECTION_FAILED show up
+    // promptly and unambiguously in the log.
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
+
+  console.info("[Auth][email] transporter ready host=" + host + " port=" + smtpPort +
+    " secure=" + (smtpPort === 465) + " user=" + maskEmail(user) +
+    " from=" + (process.env.EMAIL_FROM ? "custom" : "derived"));
 
   return emailTransporter;
 }
@@ -168,7 +273,8 @@ function resolveResetOrigin(req) {
 async function sendResetEmail(email, resetToken, req) {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[Auth] Email not configured - password reset email not sent");
+    // getEmailTransporter() has already logged WHICH variable is missing.
+    console.warn("[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED);
     return false;
   }
 
@@ -180,8 +286,8 @@ async function sendResetEmail(email, resetToken, req) {
     resetUrl = `${origin}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
   } else if (IS_PRODUCTION) {
     console.warn(
-      "[Auth] Could not establish a safe frontend origin for the reset link; " +
-        "password reset email not sent. Set FRONTEND_URL explicitly."
+      "[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED +
+        " (no safe frontend origin for the reset link; set FRONTEND_URL or RESET_ALLOWED_HOSTS)"
     );
     return false;
   } else {
@@ -224,9 +330,12 @@ async function sendResetEmail(email, resetToken, req) {
       subject: "Reset your Morine password",
       html,
     });
+    // Deliberately says only that the PROVIDER accepted the message, and
+    // masks the recipient. Neither the token nor the link is ever logged.
+    console.info("[Auth][email] class=" + EMAIL_STATUS.SENT + " to=" + maskEmail(email));
     return true;
   } catch (error) {
-    console.error("[Auth] Failed to send reset email:", error.message);
+    console.error("[Auth][email] sendMail failed - " + smtpDiag(error));
     return false;
   }
 }
@@ -299,7 +408,7 @@ class AuthController {
     try {
       const { name, email, password } = req.body;
       if (!name || !email || !password) {
-        return res.status(400).json({ success: false, error: "Name, email, and password are required." });
+        return res.status(400).json({ success: false, error: "Please enter your name, email and password." });
       }
       if (name.trim().length < 2) {
         return res.status(400).json({ success: false, error: "Name must be at least 2 characters." });
@@ -322,7 +431,7 @@ class AuthController {
       return res.status(201).json({ success: true, data: { user, token } });
     } catch (error) {
       console.error("[Auth] Signup error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 
@@ -330,44 +439,44 @@ class AuthController {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ success: false, error: "Email and password are required." });
+        return res.status(400).json({ success: false, error: "Please enter your email and password." });
       }
       const user = await User.findOne({ email: email.toLowerCase() }).select("+passwordHash");
-      if (!user) return res.status(401).json({ success: false, error: "Invalid email or password." });
+      if (!user) return res.status(401).json({ success: false, error: "Incorrect email or password." });
       const isMatch = await user.comparePassword(password);
-      if (!isMatch) return res.status(401).json({ success: false, error: "Invalid email or password." });
+      if (!isMatch) return res.status(401).json({ success: false, error: "Incorrect email or password." });
       const token = generateAccessToken(user._id);
       await issueRefreshToken(user._id, req, res);
       return res.json({ success: true, data: { user, token } });
     } catch (error) {
       console.error("[Auth] Login error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 
   async refresh(req, res) {
     try {
       const raw = req.cookies?.[REFRESH_COOKIE_NAME];
-      if (!raw) return res.status(401).json({ success: false, error: "Refresh token required." });
+      if (!raw) return res.status(401).json({ success: false, error: "Your session has expired. Please sign in again." });
       const hash = hashRefreshToken(raw);
       const record = await RefreshToken.findOne({ tokenHash: hash });
-      if (!record) return res.status(401).json({ success: false, error: "Invalid refresh token." });
+      if (!record) return res.status(401).json({ success: false, error: "Your session has expired. Please sign in again." });
       if (record.revokedAt) {
         // Reuse of revoked token — revoke family
         await RefreshToken.updateMany({ userId: record.userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
         clearRefreshCookie(res);
-        return res.status(401).json({ success: false, error: "Refresh token revoked." });
+        return res.status(401).json({ success: false, error: "Your session has expired. Please sign in again." });
       }
       if (record.expiresAt < new Date()) {
         await RefreshToken.deleteOne({ _id: record._id });
         clearRefreshCookie(res);
-        return res.status(401).json({ success: false, error: "Refresh token expired." });
+        return res.status(401).json({ success: false, error: "Your session has expired. Please sign in again." });
       }
       const user = await User.findById(record.userId);
       if (!user) {
         await RefreshToken.deleteOne({ _id: record._id });
         clearRefreshCookie(res);
-        return res.status(401).json({ success: false, error: "User not found." });
+        return res.status(401).json({ success: false, error: "We couldn't find your account. Please sign in again." });
       }
       // Rotate
       const newRaw = generateRefreshToken();
@@ -382,7 +491,7 @@ class AuthController {
       return res.json({ success: true, data: { token: newAccessToken, user } });
     } catch (error) {
       console.error("[Auth] Refresh error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 
@@ -399,7 +508,7 @@ class AuthController {
       }
     } catch {}
     clearRefreshCookie(res);
-    return res.json({ success: true, data: { message: "Logged out successfully." } });
+    return res.json({ success: true, data: { message: "You have been signed out." } });
   }
 
   async me(req, res) {
@@ -435,13 +544,19 @@ class AuthController {
       user.resetTokenExpiry = resetTokenExpiry;
       await user.save();
 
-      // Send email (non-blocking - don't reveal if email fails)
-      sendResetEmail(user.email, resetToken, req).catch(() => {});
+      // Send email (non-blocking - the caller must not learn whether the
+      // account exists, or whether delivery worked). sendResetEmail already
+      // logs every SMTP outcome; this only catches a throw from the code that
+      // runs before the SMTP call, which used to vanish silently.
+      sendResetEmail(user.email, resetToken, req).catch((err) => {
+        console.error("[Auth][email] failed before SMTP - class=" + EMAIL_STATUS.SEND_FAILED +
+          " detail=" + JSON.stringify(redactForLog(err && err.message)));
+      });
 
       return res.json(genericResponse);
     } catch (error) {
       console.error("[Auth] Forgot password error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 
@@ -449,7 +564,7 @@ class AuthController {
     try {
       const { token } = req.body;
       if (!token) {
-        return res.status(400).json({ success: false, error: "Reset token is required." });
+        return res.status(400).json({ success: false, error: "This reset link is incomplete. Please request a new one." });
       }
 
       // Find user with this reset token hash
@@ -457,13 +572,13 @@ class AuthController {
       const user = await User.findOne({ resetTokenHash: tokenHash }).select("+resetTokenHash +resetTokenExpiry");
 
       if (!user || !user.verifyResetToken(token)) {
-        return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
+        return res.status(400).json({ success: false, error: "This reset link has expired or is no longer valid. Please request a new one." });
       }
 
       return res.json({ success: true, data: { valid: true } });
     } catch (error) {
       console.error("[Auth] Verify reset token error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 
@@ -472,10 +587,10 @@ class AuthController {
       const { token, password, confirmPassword } = req.body;
 
       if (!token) {
-        return res.status(400).json({ success: false, error: "Reset token is required." });
+        return res.status(400).json({ success: false, error: "This reset link is incomplete. Please request a new one." });
       }
       if (!password || !confirmPassword) {
-        return res.status(400).json({ success: false, error: "Password and confirmation are required." });
+        return res.status(400).json({ success: false, error: "Please enter and confirm your new password." });
       }
       if (password !== confirmPassword) {
         return res.status(400).json({ success: false, error: "Passwords do not match." });
@@ -489,7 +604,7 @@ class AuthController {
       const user = await User.findOne({ resetTokenHash: tokenHash }).select("+passwordHash +resetTokenHash +resetTokenExpiry");
 
       if (!user || !user.verifyResetToken(token)) {
-        return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
+        return res.status(400).json({ success: false, error: "This reset link has expired or is no longer valid. Please request a new one." });
       }
 
       // Hash new password and clear reset token
@@ -504,10 +619,10 @@ class AuthController {
         { $set: { revokedAt: new Date() } }
       );
 
-      return res.json({ success: true, data: { message: "Password has been reset successfully. You can now sign in with your new password." } });
+      return res.json({ success: true, data: { message: "Your password has been changed. You can now sign in with your new password." } });
     } catch (error) {
       console.error("[Auth] Reset password error:", error.message);
-      return res.status(500).json({ success: false, error: "An unexpected error occurred. Please try again." });
+      return res.status(500).json({ success: false, error: "Something went wrong. Please try again." });
     }
   }
 }

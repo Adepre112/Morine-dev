@@ -11,16 +11,16 @@ async function analyze(req,res){
  try{
   const userId=req.user._id;
   const profile=await CareerProfile.findOne({userId}).lean();
-  if(!profile) return res.status(400).json({success:false,error:"Please create your Career Profile before generating interview preparation."});
+  if(!profile) return res.status(400).json({success:false,error:"Please create your Career Profile before preparing for interviews."});
   let targetRole=(req.body.targetRole||"").toString().trim();
   if(!targetRole) targetRole=(profile.targetRole||"").toString().trim();
-  if(!targetRole) return res.status(400).json({success:false,error:"Please add a target role to your Career Profile or provide targetRole in the request."});
+  if(!targetRole) return res.status(400).json({success:false,error:"Please choose a target role first."});
   let cvText=""; let cvAnalysis=null;
   if(req.body.cvId){
     const cvId=req.body.cvId.toString();
-    if(!isValid(cvId)) return res.status(404).json({success:false,error:"CV not found."});
+    if(!isValid(cvId)) return res.status(404).json({success:false,error:"We couldn't find that CV. Please refresh the page and try again."});
     const cv=await CV.findOne({_id:cvId,userId});
-    if(!cv) return res.status(404).json({success:false,error:"CV not found."});
+    if(!cv) return res.status(404).json({success:false,error:"We couldn't find that CV. Please refresh the page and try again."});
     cvText=cv.extractedText||""; cvAnalysis=cv.analysis||null;
   } else {
     const cv=await CV.findOne({userId}).sort({createdAt:-1});
@@ -33,14 +33,14 @@ async function analyze(req,res){
   let job=null; let jobMatch=null;
   if(req.body.jobMatchId){
     const jmId=req.body.jobMatchId.toString();
-    if(!isValid(jmId)) return res.status(404).json({success:false,error:"Job match not found."});
+    if(!isValid(jmId)) return res.status(404).json({success:false,error:"We couldn't find that job match. Please refresh the page and try again."});
     jobMatch=await JobMatch.findOne({_id:jmId,userId});
-    if(!jobMatch) return res.status(404).json({success:false,error:"Job match not found."});
+    if(!jobMatch) return res.status(404).json({success:false,error:"We couldn't find that job match. Please refresh the page and try again."});
     job={title:jobMatch.jobTitle,company:jobMatch.company,location:jobMatch.location,description:"",requirements:[]};
   } else if(req.body.job && typeof req.body.job==="object"){
     const j=req.body.job;
     job={title:(j.title||"").toString().slice(0,300),company:(j.company||"").toString().slice(0,200),location:(j.location||"").toString().slice(0,200),description:(j.description||"").toString().slice(0,4000),requirements:Array.isArray(j.requirements)?j.requirements.map(String).slice(0,20):[]};
-    if(!job.title) return res.status(400).json({success:false,error:"Job title is required for job-specific preparation."});
+    if(!job.title) return res.status(400).json({success:false,error:"Please add the job title for job-specific preparation."});
   }
   const result=await analyzeInterviewPreparation({profile,cvText,cvAnalysis,skillGap,careerPath,jobMatch,job,targetRole});
   const doc=await InterviewPreparation.create({
@@ -54,7 +54,7 @@ async function analyze(req,res){
   return res.status(201).json({success:true,data:{preparation:doc}});
  }catch(e){
   const code=e.statusCode||500;
-  return res.status(code).json({success:false,error:e.message||"Interview preparation failed.",code:e.code||undefined});
+  return res.status(code).json({success:false,error:e.message||"We couldn't prepare your interview practice. Please try again.",code:e.code||undefined});
  }
 }
 async function list(req,res){
@@ -65,15 +65,15 @@ async function list(req,res){
  return res.json({success:true,data:{preparations:items,pagination:{page:p,limit:l,total,pages:Math.ceil(total/l)||1}}});
 }
 async function getOne(req,res){
- if(!isValid(req.params.id)) return res.status(404).json({success:false,error:"Interview preparation not found."});
+ if(!isValid(req.params.id)) return res.status(404).json({success:false,error:"We couldn't find that interview preparation. Please refresh the page and try again."});
  const doc=await InterviewPreparation.findOne({_id:req.params.id,userId:req.user._id});
- if(!doc) return res.status(404).json({success:false,error:"Interview preparation not found."});
+ if(!doc) return res.status(404).json({success:false,error:"We couldn't find that interview preparation. Please refresh the page and try again."});
  return res.json({success:true,data:{preparation:doc}});
 }
 async function remove(req,res){
- if(!isValid(req.params.id)) return res.status(404).json({success:false,error:"Interview preparation not found."});
+ if(!isValid(req.params.id)) return res.status(404).json({success:false,error:"We couldn't find that interview preparation. Please refresh the page and try again."});
  const doc=await InterviewPreparation.findOneAndDelete({_id:req.params.id,userId:req.user._id});
- if(!doc) return res.status(404).json({success:false,error:"Interview preparation not found."});
- return res.json({success:true,data:{message:"Deleted."}});
+ if(!doc) return res.status(404).json({success:false,error:"We couldn't find that interview preparation. Please refresh the page and try again."});
+ return res.json({success:true,data:{message:"Your interview preparation was deleted."}});
 }
 module.exports={analyze,list,getOne,remove};

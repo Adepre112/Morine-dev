@@ -10,7 +10,7 @@ function isValidObjectId(id) {
 
 async function upload(req, res) {
   try {
-    if (!req.file) return res.status(400).json({ success: false, error: "No file uploaded. Please select a PDF or DOCX." });
+    if (!req.file) return res.status(400).json({ success: false, error: "Please choose a CV file first." });
 
     const originalFilename = req.file.originalname;
     /* Identify the file from its own bytes, never from the browser-reported
@@ -33,7 +33,7 @@ async function upload(req, res) {
 
     return res.status(201).json({ success: true, data: { cv } });
   } catch (e) {
-    return res.status(e.statusCode || 500).json({ success: false, error: e.message || "Upload failed." });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message || "We couldn't upload your CV. Please try again." });
   }
 }
 
@@ -45,21 +45,21 @@ async function list(req, res) {
 
 async function getOne(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     const cv = await CV.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     return res.json({ success: true, data: { cv } });
   } catch (e) {
-    return res.status(404).json({ success: false, error: "CV not found." });
+    return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
   }
 }
 
 async function analyze(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     const cv = await CV.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
-    if (!cv.extractedText) return res.status(422).json({ success: false, error: "CV has no extractable text to analyze." });
+    if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
+    if (!cv.extractedText) return res.status(422).json({ success: false, error: "We couldn't find any text in this CV. Please upload a different file." });
 
     const jobDescription = (req.body.jobDescription || "").toString().slice(0, 10000);
     const profile = await CareerProfile.findOne({ userId: req.user._id }).lean();
@@ -72,16 +72,16 @@ async function analyze(req, res) {
     return res.json({ success: true, data: { analysis } });
   } catch (e) {
     const code = e.statusCode || 500;
-    return res.status(code).json({ success: false, error: e.message || "Analysis failed.", code: e.code || undefined });
+    return res.status(code).json({ success: false, error: e.message || "We couldn't analyze your CV. Please try again.", code: e.code || undefined });
   }
 }
 
 async function optimize(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     const cv = await CV.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
-    if (!cv.analysis) return res.status(400).json({ success: false, error: "Please analyze the CV before optimizing." });
+    if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
+    if (!cv.analysis) return res.status(400).json({ success: false, error: "Please analyze your CV first, then improve it." });
 
     const optimizedContent = await optimizeCV(cv.extractedText, cv.analysis, cv.jobDescription || "");
     cv.optimizedContent = optimizedContent;
@@ -90,26 +90,26 @@ async function optimize(req, res) {
     return res.json({ success: true, data: { optimizedContent } });
   } catch (e) {
     const code = e.statusCode || 500;
-    return res.status(code).json({ success: false, error: e.message || "Optimization failed.", code: e.code || undefined });
+    return res.status(code).json({ success: false, error: e.message || "We couldn't improve your CV. Please try again.", code: e.code || undefined });
   }
 }
 
 async function remove(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     const cv = await CV.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
-    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     return res.json({ success: true, data: { message: "CV deleted." } });
   } catch (e) {
-    return res.status(404).json({ success: false, error: "CV not found." });
+    return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
   }
 }
 
 async function update(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
     const cv = await CV.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+    if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
 
     const { jobDescription } = req.body;
     if (jobDescription !== undefined) {
@@ -120,7 +120,7 @@ async function update(req, res) {
     return res.json({ success: true, data: { cv } });
   } catch (e) {
     const code = e.statusCode || 500;
-    return res.status(code).json({ success: false, error: e.message || "Update failed.", code: e.code || undefined });
+    return res.status(code).json({ success: false, error: e.message || "We couldn't save your changes. Please try again.", code: e.code || undefined });
   }
 }
 

@@ -6,17 +6,17 @@ const { JobListingError } = require("../services/jobService");
  * user-safe message. Branch on `code` only — never on the English `detail`.
  */
 const ERROR_MAP = {
-  missing_api_key: { status: 500, message: "Job search is not configured on the server. Please try again later." },
-  invalid_api_key: { status: 502, message: "The job service rejected our API key. Please try again later." },
-  account_suspended: { status: 502, message: "The job service account is unavailable. Please try again later." },
-  plan_filter_forbidden: { status: 403, message: "This search filter is not available on the current plan." },
-  unknown_role_category: { status: 400, message: "That career field is not recognised. Please choose another." },
-  rate_limited: { status: 429, message: "Live job search has reached its request limit. Please try again shortly." },
+  missing_api_key: { status: 500, message: "Job search isn't available right now. Please try again later." },
+  invalid_api_key: { status: 502, message: "Job search isn't available right now. Please try again later." },
+  account_suspended: { status: 502, message: "Job search isn't available right now. Please try again later." },
+  plan_filter_forbidden: { status: 403, message: "This search filter isn't available yet. Please choose a different one." },
+  unknown_role_category: { status: 400, message: "That career field isn't recognised. Please choose another." },
+  rate_limited: { status: 429, message: "You're searching a little too often. Please wait a moment and try again." },
   not_found: { status: 404, message: "No jobs were found for that search." },
-  validation_error: { status: 400, message: "That search request was not valid. Please adjust your filters." },
-  upstream_timeout: { status: 504, message: "The job service took too long to respond. Please try again." },
-  upstream_unreachable: { status: 502, message: "Unable to reach the job service right now. Please try again." },
-  upstream_error: { status: 502, message: "Unable to fetch jobs from the job service. Please try again." },
+  validation_error: { status: 400, message: "That search wasn't valid. Please adjust your filters." },
+  upstream_timeout: { status: 504, message: "This is taking longer than expected. Please try again." },
+  upstream_unreachable: { status: 502, message: "We couldn't load job opportunities. Please check your internet connection and try again." },
+  upstream_error: { status: 502, message: "We couldn't load job opportunities. Please try again." },
 };
 
 class JobController {
@@ -61,7 +61,7 @@ class JobController {
           : null;
 
       const status = mapped ? mapped.status : 500;
-      const message = mapped ? mapped.message : "An unexpected error occurred. Please try again later.";
+      const message = mapped ? mapped.message : "Something went wrong. Please try again.";
 
       // Log the stable code only — never the API key or upstream detail text.
       console.error(`[JobController] searchJobs failed code=${error.code || "unknown"} status=${status}`);

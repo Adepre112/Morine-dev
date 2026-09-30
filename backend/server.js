@@ -206,24 +206,28 @@ console.log("[Morine] Step 6: AI config complete");
     app.use("/api/*", (req, res) => {
       res.status(404).json({
         success: false,
-        error: "Endpoint not found",
+        error: "We couldn't find that. Please go back and try again.",
       });
     });
     console.log("[Morine] Step 17: API 404 handler configured");
     
-    // Global error handler
+    // Global error handler. The technical detail stays in the server log for
+    // developers; the browser only ever receives friendly wording.
     app.use((err, req, res, next) => {
       console.error("[Morine] Unhandled error:", err.message);
+      const friendly = err.statusCode && err.statusCode < 500 && err.message
+        ? err.message
+        : "Something went wrong. Please try again.";
       res.status(err.statusCode || 500).json({
         success: false,
-        error: err.message || "An internal server error occurred.",
+        error: friendly,
       });
     });
     console.log("[Morine] Step 18: Error handler configured");
     
     // 404 for non-API routes
     app.use((req, res) => {
-      res.status(404).json({ success: false, error: "Not found" });
+      res.status(404).json({ success: false, error: "We couldn't find that. Please go back and try again." });
     });
     console.log("[Morine] Step 19: All handlers configured");
     

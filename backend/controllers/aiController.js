@@ -39,7 +39,7 @@ async function careerProfileHandler(req, res) {
     if (!profile) {
       return res.status(400).json({
         success: false,
-        error: "Please add your Profile information first. AI Career Profile only interprets data you have provided.",
+        error: "Please add some details to your Profile first — the AI Career Profile only uses the information you've given us.",
       });
     }
 

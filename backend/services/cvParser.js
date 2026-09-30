@@ -96,7 +96,7 @@ function detectFileType(buffer, originalFilename, mimetype) {
 
 async function parseCV(buffer, fileType, originalFilename) {
   if (!buffer || buffer.length === 0) {
-    const err = new Error("File is empty or corrupted.");
+    const err = new Error("This file looks empty or damaged. Please check it and try again.");
     err.statusCode = 400;
     throw err;
   }
@@ -113,7 +113,7 @@ async function parseCV(buffer, fileType, originalFilename) {
       text = (data.text || "").trim();
       if (!text || text.length < 20) {
         const err = new Error(
-          "This PDF appears to be scanned/image-only or contains no extractable text. Please upload a text-based PDF or DOCX. OCR for scanned PDFs is not yet supported."
+          "We couldn't find any text in this PDF — it may be a scanned image. Please upload a PDF you can select text from, or a DOCX file."
         );
         err.statusCode = 422;
         throw err;
@@ -122,12 +122,12 @@ async function parseCV(buffer, fileType, originalFilename) {
       const result = await mammoth.extractRawText({ buffer });
       text = (result.value || "").trim();
       if (!text || text.length < 20) {
-        const err = new Error("DOCX contains no readable text or appears empty.");
+        const err = new Error("We couldn't find any text in this document. Please check the file and try again.");
         err.statusCode = 422;
         throw err;
       }
     } else {
-      const err = new Error("Unsupported file type. Only PDF and DOCX are allowed.");
+      const err = new Error("Please upload your CV as a PDF or DOCX file.");
       err.statusCode = 400;
       throw err;
     }

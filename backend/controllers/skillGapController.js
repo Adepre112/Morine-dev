@@ -15,7 +15,7 @@ async function analyze(req, res) {
     let targetRole = (req.body.targetRole || "").toString().trim();
     if (!targetRole) targetRole = (profile?.targetRole || "").toString().trim();
     if (!targetRole) {
-      return res.status(400).json({ success: false, error: "Please add a target role to your Career Profile or provide targetRole in the request." });
+      return res.status(400).json({ success: false, error: "Please choose a target role first." });
     }
     if (targetRole.length > 200) targetRole = targetRole.slice(0, 200);
 
@@ -23,9 +23,9 @@ async function analyze(req, res) {
     let sourceCvId = null;
     const cvId = (req.body.cvId || "").toString().trim();
     if (cvId) {
-      if (!isValidObjectId(cvId)) return res.status(404).json({ success: false, error: "CV not found." });
+      if (!isValidObjectId(cvId)) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
       cv = await CV.findOne({ _id: cvId, userId });
-      if (!cv) return res.status(404).json({ success: false, error: "CV not found." });
+      if (!cv) return res.status(404).json({ success: false, error: "We couldn't find that CV. Please refresh the page and try again." });
       sourceCvId = cv._id;
     }
 
@@ -62,7 +62,7 @@ async function analyze(req, res) {
     return res.status(201).json({ success: true, data: { analysis: doc, raw: result } });
   } catch (e) {
     const code = e.statusCode || 500;
-    return res.status(code).json({ success: false, error: e.message || "Skill-gap analysis failed.", code: e.code || undefined });
+    return res.status(code).json({ success: false, error: e.message || "We couldn't run your skill gap analysis. Please try again.", code: e.code || undefined });
   }
 }
 
@@ -73,23 +73,23 @@ async function list(req, res) {
 
 async function getOne(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "Analysis not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
     const doc = await SkillGapAnalysis.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!doc) return res.status(404).json({ success: false, error: "Analysis not found." });
+    if (!doc) return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
     return res.json({ success: true, data: { analysis: doc } });
   } catch (e) {
-    return res.status(404).json({ success: false, error: "Analysis not found." });
+    return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
   }
 }
 
 async function remove(req, res) {
   try {
-    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "Analysis not found." });
+    if (!isValidObjectId(req.params.id)) return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
     const doc = await SkillGapAnalysis.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
-    if (!doc) return res.status(404).json({ success: false, error: "Analysis not found." });
-    return res.json({ success: true, data: { message: "Analysis deleted." } });
+    if (!doc) return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
+    return res.json({ success: true, data: { message: "Your skill gap analysis was deleted." } });
   } catch (e) {
-    return res.status(404).json({ success: false, error: "Analysis not found." });
+    return res.status(404).json({ success: false, error: "We couldn't find that analysis. Please refresh the page and try again." });
   }
 }
 
