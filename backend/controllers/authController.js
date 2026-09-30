@@ -9,6 +9,7 @@ const {
   hashResetToken,
 } = require("../middleware/auth");
 const nodemailer = require("nodemailer");
+const emailService = require("../services/emailService");
 
 const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -129,7 +130,6 @@ function getEmailTransporter() {
     // 465 = implicit TLS. 587 = plain then STARTTLS, which Nodemailer upgrades
     // to automatically before AUTH when the server advertises it.
     secure: smtpPort === 465,
-    localAddress: "0.0.0.0",
     auth: { user, pass },
     // Without these a blocked or unreachable SMTP port hangs for Nodemailer's
     // default 2 minutes before reporting anything, and the failure is
@@ -272,11 +272,32 @@ function resolveResetOrigin(req) {
 }
 
 async function sendResetEmail(email, resetToken, req) {
-  const transporter = getEmailTransporter();
-  if (!transporter) {
-    // getEmailTransporter() has already logged WHICH variable is missing.
-    console.warn("[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED);
-    return false;
+  // The transport is chosen ONLY by EMAIL_PROVIDER, never by what happens to
+  // be reachable from this host:
+  //   "brevo" - Brevo's HTTPS API. Render FREE blocks outbound SMTP, so this
+  //             is what production uses; the SMTP transporter is not created
+  //             at all on this path.
+  //   anything else (incl. unset) - the original Nodemailer/SMTP path, kept
+  //             as the local-development fallback.
+  const viaBrevo = emailService.getEmailProvider() === "brevo";
+  let transporter = null;
+
+  if (viaBrevo) {
+    const missing = emailService.missingBrevoEnv();
+    if (missing.length) {
+      // Variable NAMES only - values (above all BREVO_API_KEY) are never logged.
+      console.warn("[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED +
+        " (EMAIL_PROVIDER=brevo) - missing " + missing.join(", ") +
+        "; reset email cannot be sent");
+      return false;
+    }
+  } else {
+    transporter = getEmailTransporter();
+    if (!transporter) {
+      // getEmailTransporter() has already logged WHICH variable is missing.
+      console.warn("[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED);
+      return false;
+    }
   }
 
   const origin = resolveResetOrigin(req);
@@ -324,11 +345,30 @@ async function sendResetEmail(email, resetToken, req) {
     </html>
   `;
 
+  const subject = "Reset your Morine password";
+
+  if (viaBrevo) {
+    try {
+      await emailService.sendBrevoEmail({ to: email, subject, html });
+      // Same shape as the SMTP line below, plus which transport was used:
+      // class only, recipient masked, token and link never logged.
+      console.info("[Auth][email] class=" + EMAIL_STATUS.SENT +
+        " provider=brevo to=" + maskEmail(email));
+      return true;
+    } catch (error) {
+      // describeEmailError() is built from the HTTP status, the provider's
+      // error code and a scrubbed message only - never the api-key header,
+      // never the request body, never the reset link.
+      console.error("[Auth][email] brevo failed - " + emailService.describeEmailError(error));
+      return false;
+    }
+  }
+
   try {
     await transporter.sendMail({
       from: fromAddress(),
       to: email,
-      subject: "Reset your Morine password",
+      subject,
       html,
     });
     // Deliberately says only that the PROVIDER accepted the message, and
