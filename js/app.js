@@ -1264,7 +1264,8 @@
     try {
       const res = await authApi("/api/cv/" + currentCv._id + "/analyze", {
         method: "POST",
-        body: JSON.stringify({ jobDescription: target })
+        body: JSON.stringify({ jobDescription: target }),
+        timeout: CV_AI_TIMEOUT_MS
       });
       if (res.ok && res.data && res.data.data && res.data.data.analysis) {
         currentCv.analysis = res.data.data.analysis;
@@ -1286,7 +1287,7 @@
     const btn = $("#cvMgrOptimizeBtn");
     if (btn) btn.classList.add("is-loading");
     try {
-      const res = await authApi("/api/cv/" + currentCv._id + "/optimize", { method: "POST" });
+      const res = await authApi("/api/cv/" + currentCv._id + "/optimize", { method: "POST", timeout: CV_AI_TIMEOUT_MS });
       if (res.ok && res.data && res.data.data && res.data.data.optimizedContent) {
         currentCv.optimizedContent = res.data.data.optimizedContent;
         renderCvManager();
@@ -1308,12 +1309,31 @@
     const a = document.createElement("a");
     a.href = url;
     a.download = "Morine-Optimized-CV.txt";
+    a.rel = "noopener";
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    /* Revoking the object URL synchronously cancels the download on iOS Safari
+       and some Android browsers, because the navigation to the blob URL has
+       not started yet. Keep it alive briefly, then clean up. Desktop
+       downloads are unaffected because the click has already been handled. */
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
     toast("Optimized CV downloaded", true);
   }
+
+  /* CV upload transfers up to 5MB and parses it; a slow mobile connection can
+     take well over the 30s default, so give it its own budget. */
+  const CV_UPLOAD_TIMEOUT_MS = 60000;
+
+  /* Analyze and Optimize call Gemini, which the backend will retry up to three
+     times with a 120s ceiling per attempt plus backoff (~364s worst case).
+     The client must outlast that: otherwise the browser aborts, the user is
+     told "Request timed out", and the server silently finishes the analysis
+     anyway. This constant is derived from that server-side budget. */
+  const CV_AI_TIMEOUT_MS = 390000;
 
   async function initCvOptimizer() {
     // Always read the authoritative list from the backend on entry, so a
@@ -1323,10 +1343,26 @@
 
   function validateCvFile(file) {
     if (!file) return { valid: false, error: "No file selected." };
-    const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"];
+    /* Only PDF and DOCX are supported. Legacy .doc (application/msword) is
+       deliberately excluded: the backend cannot parse it, so accepting it here
+       would only produce a confusing failure later. The MIME type is treated as
+       a hint, never as the deciding factor, because mobile browsers routinely
+       report an empty or application/octet-stream type for ordinary PDFs and
+       DOCX files; the backend inspects the actual bytes and is authoritative. */
+    const allowedTypes = [
+      "application/pdf",
+      "application/x-pdf",
+      "application/octet-stream",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
     const allowedExtensions = ["pdf", "docx"];
     const extension = (file.name.split(".").pop() || "").toLowerCase();
-    const isValidType = allowedTypes.includes(file.type) || allowedExtensions.includes(extension);
+    const type = String(file.type || "").toLowerCase();
+    const isValidType =
+      allowedExtensions.includes(extension) ||
+      allowedTypes.includes(type) ||
+      type.includes("pdf") ||
+      type.includes("wordprocessingml");
     if (!isValidType) {
       return { valid: false, error: "Unsupported file type. Please upload a PDF or DOCX file." };
     }
@@ -1344,7 +1380,7 @@
     }
     const fd = new FormData();
     fd.append("cv", file);
-    return await authApi("/api/cv/upload", { method: "POST", body: fd });
+    return await authApi("/api/cv/upload", { method: "POST", body: fd, timeout: CV_UPLOAD_TIMEOUT_MS });
   }
 
   async function latestCvId() {

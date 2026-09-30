@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const CV = require("../models/CV");
 const CareerProfile = require("../models/CareerProfile");
-const { parseCV } = require("../services/cvParser");
+const { parseCV, detectFileType } = require("../services/cvParser");
 const { analyzeCV, optimizeCV } = require("../services/aiService");
 
 function isValidObjectId(id) {
@@ -13,7 +13,14 @@ async function upload(req, res) {
     if (!req.file) return res.status(400).json({ success: false, error: "No file uploaded. Please select a PDF or DOCX." });
 
     const originalFilename = req.file.originalname;
-    const fileType = req.file.mimetype.includes("pdf") ? "pdf" : "docx";
+    /* Identify the file from its own bytes, never from the browser-reported
+     * Content-Type. Android Chrome, iOS Safari and most cloud-download
+     * sources send "application/octet-stream" (or an empty value) for a plain
+     * PDF, so trusting the MIME header made valid PDFs fail on any device
+     * other than a developer's laptop. detectFileType() throws a 400 with a
+     * clear message for anything that is not really a PDF or DOCX, so a file
+     * renamed from .png/.txt cannot slip through on its name alone. */
+    const fileType = detectFileType(req.file.buffer, originalFilename, req.file.mimetype);
     const extractedText = await parseCV(req.file.buffer, fileType, originalFilename);
 
     const cv = await CV.create({
