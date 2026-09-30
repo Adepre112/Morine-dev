@@ -22,6 +22,7 @@
 
   const LS_USER = "morine_app_user";
   const LS_PROFILE = "morine_app_profile";
+  const LS_PROFILE_OWNER = "morine_app_profile_owner";
   const LS_TOKEN = "morine_token";
 
   /* ---------- 0. Utilities ---------- */
@@ -41,7 +42,43 @@
   };
 
   const userDraft = () => store.get(LS_USER) || { name: "Not signed in", email: "" };
-  const profileDraft = () => store.get(LS_PROFILE) || {};
+
+  /* Local Profile draft ownership.
+     A draft left on a shared device must never be readable by - or synced into -
+     the next account that signs in on it, so every draft is stamped with the
+     account that wrote it. The stamp is the account's email address, which the
+     frontend already stores at sign-in: it is an identity label, not a secret,
+     token or credential. Reading the draft always requires a stamp that matches
+     the signed-in account; unattributed (legacy) drafts are treated as untrusted
+     and are never displayed or pushed to the server. */
+  const accountKey = () => String((userDraft() || {}).email || "").trim().toLowerCase();
+  const draftOwnerKey = () => String(store.get(LS_PROFILE_OWNER) || "").trim().toLowerCase();
+
+  function profileDraftOwned() {
+    const owner = draftOwnerKey();
+    const account = accountKey();
+    if (!owner || !account || owner !== account) return false;
+    return store.get(LS_PROFILE) != null;
+  }
+
+  function ownedProfileDraft() {
+    if (!profileDraftOwned()) return null;
+    return store.get(LS_PROFILE) || {};
+  }
+
+  function writeProfileDraft(draft) {
+    // No account identity available: never persist an unattributable draft.
+    if (!accountKey()) { clearProfileDraft(); return; }
+    store.set(LS_PROFILE, draft);
+    store.set(LS_PROFILE_OWNER, accountKey());
+  }
+
+  function clearProfileDraft() {
+    store.del(LS_PROFILE);
+    store.del(LS_PROFILE_OWNER);
+  }
+
+  const profileDraft = () => ownedProfileDraft() || {};
   const nameFor = () => {
     const n = userDraft().name;
     return (n && String(n).trim()) || "there";
@@ -1860,7 +1897,9 @@ authApi("/api/skill-gap/analyze", {
   }
 
   function cpDraftRole() {
-    const d = store.get(LS_PROFILE);
+    // Ownership-gated: a draft belonging to another account must never be read
+    // here as this account's target role.
+    const d = profileDraft();
     return d && d.pfRole ? String(d.pfRole).trim() : "";
   }
 
@@ -2029,6 +2068,10 @@ authApi("/api/skill-gap/analyze", {
   const chatBody = $("#chatBody");
   const chatInput = $("#chatInput");
   const chatHistory = [];
+  // The static greeting that ships in the markup. Captured before any message
+  // exists so sign-out can restore it instead of leaving an empty transcript;
+  // it contains no user data.
+  const CHAT_GREETING = chatBody ? chatBody.innerHTML : "";
 
   function appendBubble(kind, html) {
     const b = document.createElement("div");
@@ -2448,7 +2491,7 @@ authApi("/api/interview-prep/analyze", {
 
   function saveProfile(opts) {
     const p = collectProfile();
-    store.set(LS_PROFILE, p);
+    writeProfileDraft(p);
     const u = userDraft();
     u.name = p.pfName || u.name;
     u.email = p.pfRole ? u.email : u.email;
@@ -2592,7 +2635,7 @@ authApi("/api/interview-prep/analyze", {
     el.value = "";
     if (PF_LIST_FIELDS[fieldId]) renderPfChips(fieldId);
     syncPfClearButtons();
-    store.set(LS_PROFILE, collectProfile());
+    writeProfileDraft(collectProfile());
     if (isSignedIn()) {
       const simple = PF_SIMPLE_PROFILE_FIELDS[fieldId];
       if (simple) {
@@ -2793,14 +2836,22 @@ authApi("/api/interview-prep/analyze", {
    */
   async function loadServerProfile() {
     if (!isSignedIn()) return;
+    // Anything on this device that is not attributed to the signed-in account -
+    // a previous account's draft, or an old draft with no owner stamp at all -
+    // is discarded here first. It must never be displayed for this account and
+    // must never be pushed into this account's server profile.
+    if (!profileDraftOwned()) clearProfileDraft();
     const res = await authApi("/api/profile");
     if (!res || !res.ok || !res.data || !res.data.data) return;
     const p = res.data.data.profile || res.data.data;
     if (!profileHasContent(p)) {
-      // Nothing is stored on the account yet. If this device already holds a
-      // draft from before the profile was stored server-side, keep it and adopt
-      // it rather than overwriting the user's information with a blank profile.
-      if (draftHasContent(profileDraft())) {
+      // Nothing is stored on the account yet. This account's own unfinished
+      // local draft - and only that draft - is restored and adopted rather than
+      // overwriting a blank profile. profileDraft() is ownership-gated, so a
+      // draft written by a different account can never reach this branch.
+      const localDraft = profileDraft();
+      if (draftHasContent(localDraft)) {
+        applyDraftToForm(localDraft);
         await syncProfileToServer();
         return;
       }
@@ -2808,7 +2859,7 @@ authApi("/api/interview-prep/analyze", {
       return;
     }
     const d = profileToDraft(p);
-    store.set(LS_PROFILE, d);
+    writeProfileDraft(d);
     applyDraftToForm(d);
   }
 
@@ -2836,7 +2887,7 @@ authApi("/api/interview-prep/analyze", {
     el.value = current.join(", ");
     renderPfChips(fieldId);
     syncPfClearButtons();
-    store.set(LS_PROFILE, collectProfile());
+    writeProfileDraft(collectProfile());
     if (!isSignedIn()) return;
     if (fieldId === "pfSkills") {
       // One item out of this user's own saved skills. Nothing else is touched.
@@ -2942,6 +2993,25 @@ authApi("/api/interview-prep/analyze", {
   // Drop rendered, user-scoped content so it is not visible behind the sign-in
   // screen after logout.
   function clearUserScopedViewState() {
+    // Career AI conversation. Both the rendered transcript and the in-memory
+    // message array are session state: clearing them means the next account to
+    // sign in on this device sees no trace of the previous conversation, and its
+    // first request to the AI starts clean instead of resending the previous
+    // account's messages. Only the static (user-free) greeting is restored.
+    chatHistory.length = 0;
+    if (chatBody) chatBody.innerHTML = CHAT_GREETING;
+    if (chatInput) chatInput.value = "";
+    // Profile form values still render the previous account's information. Clear
+    // them so nothing from that account can be shown to, or saved by, the next
+    // account. The local draft itself is left in storage but is stamped with the
+    // account that owns it and is only ever readable by that same account.
+    PROFILE_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    $$('input[name="pfRemote"]').forEach(r => { r.checked = false; });
+    renderOverview();
+    renderCareerSteps();
     cpPaths = [];
     cpActiveId = null;
     cpServerRole = "";
@@ -3000,6 +3070,11 @@ authApi("/api/interview-prep/analyze", {
       const b = top.querySelector("[data-signin]");
       if (b) b.addEventListener("click", () => navigate("signin"));
     }
+    // The Overview greeting carries the signed-in person's name. Re-render it
+    // from the current session so a previous account's name is never left on
+    // screen after sign-out, and the next account's name appears after sign-in.
+    const welcome = $("#welcomeName");
+    if (welcome) welcome.textContent = u.name ? ", " + name : "";
   }
 
   function handleAuth(path, fields, btnId) {

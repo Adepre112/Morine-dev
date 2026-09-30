@@ -129,6 +129,7 @@ function getEmailTransporter() {
     // 465 = implicit TLS. 587 = plain then STARTTLS, which Nodemailer upgrades
     // to automatically before AUTH when the server advertises it.
     secure: smtpPort === 465,
+    localAddress: "0.0.0.0",
     auth: { user, pass },
     // Without these a blocked or unreachable SMTP port hangs for Nodemailer's
     // default 2 minutes before reporting anything, and the failure is
