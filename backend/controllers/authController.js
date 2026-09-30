@@ -14,6 +14,8 @@ const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 const RESET_TOKEN_MAX_AGE = 60 * 60 * 1000; // 1 hour
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 /* Email transporter - lazily initialized */
 let emailTransporter = null;
 
@@ -24,7 +26,6 @@ function getEmailTransporter() {
   const port = parseInt(process.env.EMAIL_PORT || "587", 10);
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
-  const from = process.env.EMAIL_FROM || `"Morine" <${user}>`;
 
   if (!host || !user || !pass) {
     return null;
@@ -40,17 +41,154 @@ function getEmailTransporter() {
   return emailTransporter;
 }
 
-async function sendResetEmail(email, resetToken) {
+/* Sender address for every outgoing mail. This lives at module scope as its
+   own function because the value is needed at send time: declaring it inside
+   getEmailTransporter() left `from` undefined in sendResetEmail(), which made
+   every password-reset email throw a ReferenceError and silently send nothing. */
+function fromAddress() {
+  return process.env.EMAIL_FROM || `"Morine" <${process.env.EMAIL_USER}>`;
+}
+
+/* ---- Password-reset link origin -------------------------------------------
+ *
+ * Morine is a SINGLE-ORIGIN app: one Render service serves the frontend and
+ * every /api/* route from the same host, so FRONTEND_URL is deliberately unset
+ * in production (see render.yaml) and the reset link has to be built from the
+ * request. That is convenient, but the Host and X-Forwarded-Proto headers are
+ * attacker-controlled the moment anyone can reach the process directly, so a
+ * derived origin is treated as UNTRUSTED and must clear every check below
+ * before it is allowed into an email. Reflecting an unchecked Host header
+ * would let anyone mail a victim a genuine, freshly-minted reset token wrapped
+ * in a link pointing at the attacker's own domain.
+ *
+ *   1. FRONTEND_URL, when the operator has set it, is authoritative.
+ *   2. Otherwise the origin is derived from the request, but:
+ *        - the scheme must be exactly "http" or "https" (blocks "javascript:",
+ *          "data:" and any second "//authority" smuggled in after a colon);
+ *        - the host must be a bare hostname or bracketed IPv6 literal, with an
+ *          optional numeric port and nothing else -- no scheme, no path, no
+ *          userinfo ("user@host"), no whitespace, no backslash;
+ *        - a comma-joined X-Forwarded-* chain is ambiguous, so it is rejected
+ *          rather than guessed at;
+ *        - the host must additionally be one this deployment is willing to
+ *          send a live token to. Valid syntax is NOT enough: anyone who can
+ *          reach the process can set "Host: evil.example", and a victim who
+ *          clicked that link would hand a working reset token to the attacker.
+ *          In production the host must therefore be on the allowlist below;
+ *        - in production the scheme is pinned to https so a spoofed "http"
+ *          cannot downgrade a live link.
+ *
+ * If none of that yields an origin, no link is built. In production the mail is
+ * skipped entirely rather than shipping an unusable or attacker-chosen link;
+ * only in development does the plaintext dev fallback remain.
+ */
+const SAFE_SCHEMES = new Set(["http", "https"]);
+const SAFE_HOST = /^(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*)(?::\d{1,5})?$/;
+
+/* Hosts a request-derived origin may point at while FRONTEND_URL is unset.
+ *
+ * The default is the EXACT public host this service is deployed on, not a
+ * "*.onrender.com" wildcard. A wildcard looks safe but is not: anyone can
+ * stand up their own service at evil.onrender.com, send the app one direct
+ * request carrying "Host: evil.onrender.com" plus a victim's address, and the
+ * app would happily mail that victim a genuine, freshly-minted reset token
+ * wrapped in a link pointing at the attacker's host. Syntax validation cannot
+ * catch that, so the allowlist has to name a host we actually control.
+ *
+ * Set RESET_ALLOWED_HOSTS (comma-separated) if the app is served from a custom
+ * domain, or if the service is renamed. Development is unrestricted so that
+ * LAN testing (e.g. 192.168.x.x:3000) keeps working. */
+const DEFAULT_RESET_HOSTS = ["morine-ai.onrender.com"];
+
+function hostIsAllowed(host) {
+  const hostname = String(host).replace(/:\d{1,5}$/, "").toLowerCase();
+  const configured = String(process.env.RESET_ALLOWED_HOSTS || "")
+    .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  const allowed = configured.length ? configured : (IS_PRODUCTION ? DEFAULT_RESET_HOSTS : null);
+  if (!allowed) return true; // development
+  return allowed.some(entry => {
+    // A leading "." opts that entry into subdomains, e.g. ".example.com".
+    // Without it the match is exact: "example.com" must not quietly authorise
+    // "attacker.example.com" or "a.b.example.com".
+    const wildcard = entry.startsWith(".");
+    const bare = (wildcard ? entry.slice(1) : entry).replace(/^\./, "");
+    return hostname === bare || (wildcard && hostname.endsWith("." + bare));
+  });
+}
+
+/** Reads one header value, rejecting proxy-chain lists like "https, http". */
+function singleHeaderValue(req, name) {
+  let raw;
+  try {
+    raw = typeof req.get === "function" ? req.get(name) : (req.headers || {})[name];
+  } catch (e) {
+    return null;
+  }
+  if (typeof raw !== "string") return null;
+  const v = raw.trim();
+  if (!v || v.includes(",")) return null;
+  return v;
+}
+
+function safeScheme(req) {
+  const fromHeader = singleHeaderValue(req, "x-forwarded-proto");
+  const proto = String(fromHeader || (req && req.protocol) || "").trim().toLowerCase();
+  return SAFE_SCHEMES.has(proto) ? proto : null;
+}
+
+function safeHost(req) {
+  const raw = singleHeaderValue(req, "host");
+  if (!raw || raw.length > 253 || !SAFE_HOST.test(raw)) return null;
+  return raw;
+}
+
+/** Returns "https://host" or "https://host:port", or null if it cannot be
+    established safely. */
+function resolveResetOrigin(req) {
+  const configured = (process.env.FRONTEND_URL || "").trim();
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.origin;
+      }
+    } catch (e) {
+      // Malformed FRONTEND_URL: fall through to the request rather than
+      // trusting it.
+    }
+  }
+  if (!req) return null;
+  const host = safeHost(req);
+  if (!host || !hostIsAllowed(host)) return null;
+  const scheme = safeScheme(req);
+  if (!scheme) return null;
+  return `${IS_PRODUCTION ? "https" : scheme}://${host}`;
+}
+
+async function sendResetEmail(email, resetToken, req) {
   const transporter = getEmailTransporter();
   if (!transporter) {
     console.warn("[Auth] Email not configured - password reset email not sent");
     return false;
   }
 
-  const frontendUrl = (process.env.FRONTEND_URL || "").trim();
-  const resetUrl = frontendUrl
-    ? `${frontendUrl.replace(/\/+$/, "")}/#/reset-password?token=${resetToken}`
-    : `Reset token (dev only): ${resetToken}`;
+  const origin = resolveResetOrigin(req);
+  // The token is only ever placed in a URL under a validated origin. It is
+  // never logged and never returned to the caller.
+  let resetUrl = null;
+  if (origin) {
+    resetUrl = `${origin}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
+  } else if (IS_PRODUCTION) {
+    console.warn(
+      "[Auth] Could not establish a safe frontend origin for the reset link; " +
+        "password reset email not sent. Set FRONTEND_URL explicitly."
+    );
+    return false;
+  } else {
+    // Development convenience only: the token is shown so it can be pasted
+    // into the app by hand. Never reachable in production.
+    resetUrl = `Reset token (dev only): ${resetToken}`;
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -81,7 +219,7 @@ async function sendResetEmail(email, resetToken) {
 
   try {
     await transporter.sendMail({
-      from,
+      from: fromAddress(),
       to: email,
       subject: "Reset your Morine password",
       html,
@@ -120,8 +258,6 @@ async function sendResetEmail(email, resetToken) {
  * original Path / SameSite / Secure attributes exactly, so sharing this
  * function is what guarantees sign-out actually removes the cookie.
  */
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
-
 function refreshCookieOptions(extra) {
   return Object.assign(
     {
@@ -300,7 +436,7 @@ class AuthController {
       await user.save();
 
       // Send email (non-blocking - don't reveal if email fails)
-      sendResetEmail(user.email, resetToken).catch(() => {});
+      sendResetEmail(user.email, resetToken, req).catch(() => {});
 
       return res.json(genericResponse);
     } catch (error) {
@@ -318,7 +454,7 @@ class AuthController {
 
       // Find user with this reset token hash
       const tokenHash = hashResetToken(token);
-      const user = await User.findOne({ resetTokenHash: tokenHash });
+      const user = await User.findOne({ resetTokenHash: tokenHash }).select("+resetTokenHash +resetTokenExpiry");
 
       if (!user || !user.verifyResetToken(token)) {
         return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
@@ -350,7 +486,7 @@ class AuthController {
 
       // Find user with this reset token hash
       const tokenHash = hashResetToken(token);
-      const user = await User.findOne({ resetTokenHash: tokenHash }).select("+passwordHash");
+      const user = await User.findOne({ resetTokenHash: tokenHash }).select("+passwordHash +resetTokenHash +resetTokenExpiry");
 
       if (!user || !user.verifyResetToken(token)) {
         return res.status(400).json({ success: false, error: "Invalid or expired reset token." });
