@@ -359,6 +359,9 @@
       history.replaceState(null, "", "#" + active.path);
     }
     setActiveNav();
+    // Leaving a screen re-masks every password field: switching from Sign In
+    // to Create Account (or back) must never reveal a password typed earlier.
+    resetPasswordToggles();
     if (active.id === "jobs") loadOpps();
     if (active.id === "cv") initCvOptimizer();
     if (active.id === "skills") loadSgList();
@@ -379,6 +382,40 @@
     const guard = guardRoute(id);
     showView(guard, { keepHash: true });
     history.pushState(null, "", "#" + (VIEWS.find(v => v.id === guard) || view).path);
+  }
+
+  /* ---------- Password visibility toggle ----------
+   *
+   * Every password input sits in a .field__group with an eye button that is a
+   * <button type="button">, so a click can never submit the surrounding form.
+   * Toggling only flips the input's type between "password" and "text": the
+   * value itself is never read, copied, logged or stored - nothing about the
+   * password leaves the input element. showView() resets every toggle, so
+   * moving between screens always leaves the fields masked again. */
+  function setPwToggle(btn, shown) {
+    const input = document.getElementById(btn.dataset.togglePassword);
+    if (!input) return;
+    input.type = shown ? "text" : "password";
+    btn.classList.toggle("is-shown", shown);
+    btn.setAttribute("aria-pressed", String(shown));
+    btn.setAttribute("aria-label", shown ? "Hide password" : "Show password");
+  }
+
+  function resetPasswordToggles() {
+    $$(".field__toggle[data-toggle-password]").forEach(btn => setPwToggle(btn, false));
+  }
+
+  function initPasswordToggles() {
+    $$(".field__toggle[data-toggle-password]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        // type="button" already keeps this out of submission; preventDefault
+        // is belt-and-braces in case a surrounding handler ever submits.
+        e.preventDefault();
+        const input = document.getElementById(btn.dataset.togglePassword);
+        if (!input) return;
+        setPwToggle(btn, input.type === "password");
+      });
+    });
   }
 
   /* ---------- 2. Overview ---------- */
@@ -1245,6 +1282,27 @@
    * change event, which is the only point at which the chosen file exists.
    */
   let cvReplacePending = false;
+  const cvFileInput = $("#cvFile");
+
+  /* Cancelling a file picker fires no event at all, so the pending flag set by
+   * handleReplaceCv() would survive and misroute the NEXT unrelated file
+   * selection into the destructive replace-and-delete flow.
+   *
+   * It is cleared on the next click anywhere in the capture phase rather than
+   * on window focus: a `change` event from a successful pick is always
+   * delivered before the user can click again, so this can never preempt a
+   * real selection - and unlike focus it does not depend on whether a given
+   * browser fires focus before or after change, which differs between iOS
+   * Safari and Chrome. The Replace button arms the flag in its own click
+   * handler, which runs after this capture listener. */
+  document.addEventListener("click", (e) => {
+    /* handleReplaceCv() opens the picker with input.click(), which dispatches a
+     * synthetic click on the input that bubbles up to here. That click is part
+     * of the replace flow itself, so it must not cancel the intent it just
+     * armed. */
+    if (cvFileInput && e.target === cvFileInput) return;
+    cvReplacePending = false;
+  }, true);
 
   async function runReplaceCv(file) {
     const previous = currentCv;
@@ -1289,6 +1347,10 @@
     const input = $("#cvFile");
     if (!input) return;
     cvReplacePending = true;
+    /* Clear the selection before opening the picker. Browsers only fire a
+     * change event when the new value differs from the old one, so picking the
+     * SAME file twice in a row would otherwise silently do nothing. */
+    input.value = "";
     input.click();
   }
 
@@ -1482,9 +1544,17 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     })();
   });
 
+  /* The upload zone is a <label> that NESTS #cvFile, so the browser already
+     forwards a tap on it to the file input. Adding a click handler that also
+     called input.click() was the reason uploads failed on iPhone: the label's
+     own activation and the explicit click() each opened the picker, and the
+     synthetic click bubbled back into the same handler and re-entered it.
+     iOS Safari rejects a second picker activation inside one user gesture, so
+     the picker opened and closed again and no file was ever selected. There is
+     deliberately NO click handler here: native label activation is the only
+     path that opens the picker, and it fires exactly once. */
   const cvDrop = $("#cvDrop");
   if (cvDrop) {
-    cvDrop.addEventListener("click", () => $("#cvFile") && $("#cvFile").click());
     cvDrop.addEventListener("dragover", e => { e.preventDefault(); cvDrop.classList.add("is-drag"); });
     cvDrop.addEventListener("dragleave", () => cvDrop.classList.remove("is-drag"));
     cvDrop.addEventListener("drop", e => {
@@ -1497,12 +1567,31 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
         toast(validation.error, false);
         return;
       }
+      /* Stage the dropped file on the real input, so "Analyze CV" reads the
+         same single source of truth as a picker selection. Assigning
+         input.files does not fire a change event, so the label is updated here
+         to keep the visible state honest. */
       const input = $("#cvFile");
-      if (f && input) {
-        const dt = new DataTransfer();
-        dt.items.add(f);
-        input.files = dt.files;
+      if (!input) return;
+      let attached = false;
+      if (typeof DataTransfer === "function") {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(f);
+          input.files = dt.files;
+          attached = !!(input.files && input.files.length);
+        } catch (e) { /* handled by the fallback below */ }
       }
+      /* DataTransfer is unimplemented in Safari, and iOS has no drag and drop
+         at all, so there is no input to stage the file on. Say so instead of
+         silently doing nothing: tapping the zone opens the picker, which works
+         everywhere. */
+      if (!attached) {
+        toast("This browser can't attach a dropped file. Tap the upload area and choose the file instead.", false);
+        return;
+      }
+      const label = $("#cvDropLabel");
+      if (label) label.textContent = "Selected: " + f.name;
     });
   }
   $("#cvFile") && $("#cvFile").addEventListener("change", function () {
@@ -1510,25 +1599,32 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     const label = $("#cvDropLabel");
     if (label && file) label.textContent = "Selected: " + file.name;
     if (!file) return;
-    
-    // Client-side validation
+    uploadCvFile(file, this);
+  });
+
+  /* Single entry point for a newly chosen or dropped file. Selecting a file
+     does not upload it: the file is staged in the input and the user presses
+     "Analyze CV" (which uploads, then analyzes) so an accidental tap on the
+     upload zone never spends an AI request. The only exception is a
+     replacement, which must upload immediately to complete the swap. */
+  function uploadCvFile(file, input) {
+    const label = $("#cvDropLabel");
+    if (!file) return;
+
     const validation = validateCvFile(file);
     if (!validation.valid) {
       toast(validation.error, false);
-      this.value = "";
+      if (input) input.value = "";
       if (label) label.textContent = "Drop PDF or DOCX here, or click to browse";
       return;
     }
 
-    // A file chosen via "Replace CV" is handled here, and only here. The input
-    // is reset first so re-picking the same file fires change again.
     if (cvReplacePending) {
       cvReplacePending = false;
-      this.value = "";
+      if (input) input.value = "";
       runReplaceCv(file);
-      return;
     }
-  });
+  }
 
   /* ---------- 5. Skill Gap (real backend: /api/skill-gap/analyze) ---------- */
   const sgListEl = $("#sgList");
@@ -3294,6 +3390,7 @@ authApi("/api/interview-prep/analyze", {
   }
 
   function init() {
+    initPasswordToggles();
     renderUser();
     // Add per-field Clear controls and removable list items before filling the
     // form, so the chips reflect the saved draft immediately.

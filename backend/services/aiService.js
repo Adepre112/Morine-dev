@@ -29,6 +29,7 @@ function getAIClient() {
   if (provider === "groq") {
     const key = process.env.GROQ_API_KEY;
     if (!key) {
+      console.error("[Morine] AI not configured: missing GROQ_API_KEY in backend/.env");
       const err = new Error(
         "The AI service isn't available right now. Please try again later."
       );
@@ -50,6 +51,7 @@ function getAIClient() {
   } else {
     const key = process.env.OPENAI_API_KEY;
     if (!key) {
+      console.error("[Morine] AI not configured: missing OPENAI_API_KEY in backend/.env");
       const err = new Error(
         "The AI service isn't available right now. Please try again later."
       );
@@ -181,6 +183,7 @@ async function createGeminiChatCompletion(params) {
   const { GoogleGenAI } = require("@google/genai");
   const key = process.env.GEMINI_API_KEY;
   if (!key || key === "PASTE_THE_GEMINI_KEY_HERE") {
+    console.error("[Morine] AI not configured: missing or placeholder GEMINI_API_KEY in backend/.env");
     const err = new Error(
       "The AI service isn't available right now. Please try again later."
     );

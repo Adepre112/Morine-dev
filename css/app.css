@@ -262,6 +262,13 @@ body { overflow-x: clip; }
   cursor: pointer; text-align: center; transition: border-color .2s, background .2s;
 }
 .cvlab__drop:hover { border-color: #705cff; background: rgba(112,92,255,.05); }
+/* Visually hidden, still interactive. NOT display:none or the `hidden`
+   attribute: iOS Safari refuses to open the file picker for a display:none
+   input, which made tapping the upload zone do nothing on iPhone. */
+.cvlab__file {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 .cvlab__drop.is-drag { border-color: #705cff; background: rgba(112,92,255,.09); }
 .cvlab__drop svg { color: var(--primary-2); }
 .cvlab__drop strong { font-size: .92rem; }
@@ -517,20 +524,24 @@ body { overflow-x: clip; }
 
 /* ---------- 12. Auth ---------- */
 .app-view--auth { display: none !important; place-items: center; }
-.app-view--auth.is-active { display: grid !important; animation: viewIn .3s ease both; min-height: calc(100dvh - 90px); }
+.app-view--auth.is-active { display: grid !important; animation: viewIn .3s ease both; min-height: calc(100dvh - 90px); z-index: 1100; }
 .auth-card {
   width: min(430px, 100%); margin: 12px 0 40px;
   background: linear-gradient(170deg, #141c3c, #0c1127);
   border: 1px solid var(--border-strong); border-radius: var(--r-xl);
   padding: 34px 32px 26px;
   box-shadow: 0 40px 100px -30px rgba(0,0,0,.85), 0 0 110px -40px rgba(124,102,255,.45);
+  position: relative;
+  z-index: 1100;
 }
 .auth-card__title { font-family: var(--font-display); font-size: 1.4rem; margin-top: 14px; text-align: center; letter-spacing: -.01em; }
 .auth-card__skip { margin-top: 18px; text-align: center; font-size: .86rem; color: var(--text-mute); }
 .auth-card__skip button { border: none; background: none; cursor: pointer; font-size: .86rem; }
 .auth-forgot { text-align: center; margin: 8px 0 4px; font-size: .86rem; }
-.auth-forgot a { color: var(--primary); text-decoration: underline; }
+.auth-forgot a { color: var(--primary); text-decoration: underline; pointer-events: auto; }
 .auth-forgot a:hover { color: var(--cyan); }
+
+.auth-card__skip a { pointer-events: auto; }
 
 .auth-success { text-align: center; padding: 8px 0 4px; }
 .auth-success svg { color: var(--mint); margin-bottom: 12px; }
@@ -690,6 +701,7 @@ body { overflow-x: clip; }
   .chat__form { padding: 12px 16px; }
   .chat__sugg { padding: 0 16px 10px; }
   .msg { max-width: 92%; }
+  .msg__bubble { padding: 11px 13px; }
   .msg__md h1 { font-size: 1rem; }
   .msg__md h2 { font-size: .95rem; }
   .msg__md h3 { font-size: .91rem; }

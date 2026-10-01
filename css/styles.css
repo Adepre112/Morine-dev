@@ -717,7 +717,11 @@ ul, ol { list-style: none; }
 .field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(124,102,255,.16); background: rgba(6,10,23,.8); }
 .field input.is-invalid { border-color: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.14); }
 .field__group { position: relative; }
-.field__group input { padding-right: 46px; }
+/* .field__group must out-specify the type-attribute selector above
+   (`.field input[type="password"]` = 0,2,1) or its shorthand padding wins and
+   the eye button sits on top of the text. Equal specificity + later in the
+   file beats it for both text and password types. */
+.field .field__group input { padding-right: 46px; }
 .field__error { display: block; font-size: .76rem; color: #f87171; margin-top: 6px; min-height: 0; }
 .field.is-invalid .field__error { color: #f87171; }
 
@@ -728,6 +732,14 @@ ul, ol { list-style: none; }
   transition: color .2s ease, background .2s ease;
 }
 .field__toggle:hover { color: var(--text); background: rgba(148,163,216,.1); }
+.field__toggle:active { background: rgba(148,163,216,.18); }
+/* Suppress the grey flash iOS Safari paints over tapped buttons, so the
+   revealed state is communicated only by the icon and the label. */
+.field__toggle { -webkit-tap-highlight-color: transparent; }
+/* Focus is drawn by the global :focus-visible outline in this file; removing
+   the default keeps the custom ring from doubling up. */
+.field__toggle:focus { outline: none; }
+.field__toggle:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
 .field__toggle .eye-on { display: none; }
 .field__toggle.is-shown .eye-off { display: none; }
 .field__toggle.is-shown .eye-on { display: block; }
@@ -965,6 +977,11 @@ ul, ol { list-style: none; }
   .job-card__foot { flex-wrap: wrap; }
   .modal__card { padding: 28px 20px 24px; }
   .toast { right: 12px; left: 12px; bottom: 12px; max-width: none; }
+  /* Touch devices: grow the eye button to a 44px target (Apple HIG / WCAG 2.5.5
+     comfortable target) and widen the input's text padding to match, so the
+     button never sits on top of the typed password on small screens. */
+  .field__toggle { width: 44px; height: 44px; right: 3px; }
+  .field .field__group input { padding-right: 50px; }
 
   .diff { grid-template-columns: 1fr; }
   .diff__arrow { transform: rotate(90deg); align-self: center; }
