@@ -11,9 +11,17 @@
  *    the shell contains no user data.
  *  - Navigations are network-first so a fresh app.html is always preferred; the
  *    cached copy is an offline fallback only.
+ *  - EVERY shell asset is network-first for the same reason. This used to be
+ *    cache-first, keyed on the cache name below, which meant a frontend fix
+ *    could never reach a device that had already installed the worker: the
+ *    worker is only reinstalled when sw.js itself changes, so a commit that
+ *    touched only js/app.js or css/app.css left every returning browser on the
+ *    old files indefinitely. That is exactly how an iOS fix shipped and still
+ *    did not fix the iPhone. Network-first costs one conditional request per
+ *    asset and makes a deploy take effect on the next load with no user action.
  */
 
-const VERSION = "morine-shell-v1";
+const VERSION = "morine-shell-v2";
 const SHELL_CACHE = VERSION;
 
 /* Fixed application-shell allow-list. Paths are absolute from the SW scope ("/"). */
@@ -119,19 +127,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static shell assets: cache-first (they are versioned by the cache name).
+  // Static shell assets: network-first, cached copy as an offline fallback.
+  // Deliberately NOT cache-first - see the note above VERSION. The cache is
+  // still refreshed on every successful fetch so the offline path stays useful.
   if (isCacheableShell(url)) {
     event.respondWith(
-      caches.match(req).then((hit) => {
-        if (hit) return hit;
-        return fetch(req).then((res) => {
+      fetch(req)
+        .then((res) => {
           if (res && res.ok && res.type === "basic") {
             const copy = res.clone();
             caches.open(SHELL_CACHE).then((c) => c.put(req, copy)).catch(() => {});
           }
           return res;
-        }).catch(() => caches.match(OFFLINE_APP_SHELL).then(f => f || Response.error()));
-      })
+        })
+        .catch(() =>
+          caches.match(req).then((hit) => hit || caches.match(OFFLINE_APP_SHELL).then((f) => f || Response.error()))
+        )
     );
   }
   // Anything else falls through to the network untouched.

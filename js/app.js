@@ -1176,7 +1176,14 @@
             <span class="mute">${esc(currentCv.fileType?.toUpperCase())} · ${esc(String(currentCv.fileSize || 0))} bytes · Uploaded ${esc(uploadDate)}</span>
           </div>
           <div class="cvlab__current-actions">
-            <button type="button" class="btn btn--ghost btn--sm" id="cvReplaceBtn">Replace CV</button>
+            <!-- A <label for="cvFile">, not a <button> that calls input.click().
+                 #cvFile is nested inside <label id="cvDrop">, so a programmatic
+                 click() on it can be forwarded a second time by that label and
+                 iOS Safari treats the second activation in the same gesture as a
+                 dismissal - the picker opened and closed again. A label uses the
+                 browser's own single native activation, which is what opens the
+                 picker reliably on iPhone. -->
+            <label class="btn btn--ghost btn--sm" id="cvReplaceBtn" for="cvFile" role="button" tabindex="0">Replace CV</label>
             <button type="button" class="btn btn--danger btn--sm" id="cvDeleteBtn">Delete CV</button>
           </div>
         </div>
@@ -1194,9 +1201,23 @@
       ${optimizedHtml}
     `;
 
-    // Bind events
+    // Bind events. The Replace control is a <label for="cvFile">: arming the
+    // intent and resetting the selection are all it does, and the browser's own
+    // label activation opens the picker. Nothing calls input.click().
     const replaceBtn = $("#cvReplaceBtn");
-    if (replaceBtn) replaceBtn.addEventListener("click", () => handleReplaceCv());
+    if (replaceBtn) {
+      replaceBtn.addEventListener("click", () => armReplaceCv());
+      /* Keyboard users activate a label with Enter/Space, which does not always
+         produce a click. */
+      replaceBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          armReplaceCv();
+          const input = $("#cvFile");
+          if (input && typeof input.click === "function") input.click();
+        }
+      });
+    }
 
     const deleteBtn = $("#cvDeleteBtn");
     if (deleteBtn) deleteBtn.addEventListener("click", () => handleDeleteCv());
@@ -1278,28 +1299,29 @@
   /**
    * "Replace CV" uploads the newly chosen file and then removes the CV it
    * supersedes, so the old one can never resurface as the newest CV later.
-   * The button only opens the file picker; the upload runs from the file input's
-   * change event, which is the only point at which the chosen file exists.
+   * The Replace control only arms the flow; the browser's own label activation
+   * opens the picker, and the upload runs from the file input's change event,
+   * which is the only point at which the chosen file exists.
    */
   let cvReplacePending = false;
   const cvFileInput = $("#cvFile");
 
   /* Cancelling a file picker fires no event at all, so the pending flag set by
-   * handleReplaceCv() would survive and misroute the NEXT unrelated file
-   * selection into the destructive replace-and-delete flow.
+   * armReplaceCv() would survive and misroute the NEXT unrelated file selection
+   * into the destructive replace-and-delete flow.
    *
    * It is cleared on the next click anywhere in the capture phase rather than
    * on window focus: a `change` event from a successful pick is always
    * delivered before the user can click again, so this can never preempt a
    * real selection - and unlike focus it does not depend on whether a given
    * browser fires focus before or after change, which differs between iOS
-   * Safari and Chrome. The Replace button arms the flag in its own click
+   * Safari and Chrome. The Replace label arms the flag in its own click
    * handler, which runs after this capture listener. */
   document.addEventListener("click", (e) => {
-    /* handleReplaceCv() opens the picker with input.click(), which dispatches a
-     * synthetic click on the input that bubbles up to here. That click is part
-     * of the replace flow itself, so it must not cancel the intent it just
-     * armed. */
+    /* When #cvReplaceBtn (a <label for="cvFile">) is activated, the browser
+     * forwards the activation to the input as a separate click whose target IS
+     * the input. That forwarded click is part of the replace flow itself, so it
+     * must not cancel the intent it just armed. */
     if (cvFileInput && e.target === cvFileInput) return;
     cvReplacePending = false;
   }, true);
@@ -1343,15 +1365,14 @@
     }
   }
 
-  function handleReplaceCv() {
+  function armReplaceCv() {
     const input = $("#cvFile");
     if (!input) return;
     cvReplacePending = true;
-    /* Clear the selection before opening the picker. Browsers only fire a
-     * change event when the new value differs from the old one, so picking the
-     * SAME file twice in a row would otherwise silently do nothing. */
+    /* Clear the selection before the picker opens. Browsers only fire a change
+       event when the new value differs from the old one, so picking the SAME file
+       twice in a row would otherwise silently do nothing. */
     input.value = "";
-    input.click();
   }
 
   async function handleDeleteCv() {
@@ -1444,6 +1465,14 @@
     await refreshCvLibrary();
   }
 
+  /* Same string in both places that display a selection, so the wording cannot
+     drift between the pick path and the drop path. */
+  const CV_DROP_HINT = "Drop PDF or DOCX here, or click to browse";
+  function cvSelectedLabel(file) {
+    const kb = Math.max(1, Math.round((file.size || 0) / 1024));
+    return "Selected: " + file.name + " (" + kb + " KB) - now press Analyze CV";
+  }
+
   function validateCvFile(file) {
     if (!file) return { valid: false, error: "Please choose a CV file first." };
     /* Only PDF and DOCX are supported. Legacy .doc (application/msword) is
@@ -1459,16 +1488,45 @@
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
     const allowedExtensions = ["pdf", "docx"];
-    const extension = (file.name.split(".").pop() || "").toLowerCase();
+    const name = String(file.name || "");
+    /* An iCloud/Files "scanned" item can arrive with NO extension, which would
+       make split(".") return the whole name as the extension. */
+    const dot = name.lastIndexOf(".");
+    const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
     const type = String(file.type || "").toLowerCase();
-    const isValidType =
-      allowedExtensions.includes(extension) ||
-      allowedTypes.includes(type) ||
-      type.includes("pdf") ||
-      type.includes("wordprocessingml");
-    if (!isValidType) {
+
+    if (extension === "doc" || type === "application/msword") {
+      return {
+        valid: false,
+        error: "That looks like an older Word document (.doc). Please save it as a DOCX or PDF and upload it again.",
+      };
+    }
+
+    const typeSaysPdfOrDocx =
+      allowedTypes.includes(type) || type.includes("pdf") || type.includes("wordprocessingml");
+
+    /* An extension that is present is the strongest signal available, so it has
+       to be one we support. Otherwise a ".exe" reported as application/octet-
+       stream - which appears in allowedTypes precisely because iOS sends that
+       for ordinary CVs - would sail through the client on the strength of its
+       MIME type alone. */
+    if (extension) {
+      if (!allowedExtensions.includes(extension)) {
+        return { valid: false, error: "Please upload your CV as a PDF or DOCX file." };
+      }
+    } else if (type && !typeSaysPdfOrDocx) {
+      /* No extension, but the browser states a MIME type and it is not one we
+         support, so there is nothing to defer to. */
       return { valid: false, error: "Please upload your CV as a PDF or DOCX file." };
     }
+
+    /* If we reach here with no extension and no usable MIME type, that is
+       exactly what iOS reports for plenty of legitimate PDFs opened from the
+       Files app, and refusing produced "Please upload your CV as a PDF or DOCX
+       file" for a file that was fine. Send it instead: the server checks the
+       %PDF / PK ZIP signature in cvParser.detectFileType() and rejects anything
+       that is not really a PDF or DOCX, so this defers to a stronger check
+       rather than weakening validation. */
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       return { valid: false, error: "Your CV is too large. Please upload a file smaller than 5MB." };
@@ -1591,13 +1649,18 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
         return;
       }
       const label = $("#cvDropLabel");
-      if (label) label.textContent = "Selected: " + f.name;
+      if (label) label.textContent = cvSelectedLabel(f);
     });
   }
   $("#cvFile") && $("#cvFile").addEventListener("change", function () {
     const file = this.files && this.files[0];
     const label = $("#cvDropLabel");
-    if (label && file) label.textContent = "Selected: " + file.name;
+    /* Note the ORDER: the filename is shown before anything else runs, so a
+       slow or failing upload can never leave the user staring at the untouched
+       default hint and concluding that the tap did nothing. This is the whole
+       visible difference between "the picker worked" and "the picker never
+       opened" on iOS. */
+    if (label && file) label.textContent = cvSelectedLabel(file);
     if (!file) return;
     uploadCvFile(file, this);
   });
@@ -1615,7 +1678,7 @@ $("#cvAnalyzeBtn") && $("#cvAnalyzeBtn").addEventListener("click", function () {
     if (!validation.valid) {
       toast(validation.error, false);
       if (input) input.value = "";
-      if (label) label.textContent = "Drop PDF or DOCX here, or click to browse";
+      if (label) label.textContent = CV_DROP_HINT;
       return;
     }
 
@@ -3020,11 +3083,21 @@ authApi("/api/interview-prep/analyze", {
     return _api(p, opts);
   };
 
+  /* updateViaCache:"none" keeps sw.js itself out of the HTTP cache, and the
+     explicit registration.update() re-checks it on every load. Without this a
+     browser can keep running an old worker from its own cache, and because a
+     worker is only replaced when its script changes, that old worker would go
+     on serving its old cache strategy for the whole shell. */
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("sw.js").catch(function () {
-        /* App still works fully without a service worker. */
-      });
+      navigator.serviceWorker
+        .register("sw.js", { updateViaCache: "none" })
+        .then(function (reg) {
+          if (reg && typeof reg.update === "function") reg.update().catch(function () {});
+        })
+        .catch(function () {
+          /* App still works fully without a service worker. */
+        });
     });
   }
 

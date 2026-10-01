@@ -262,6 +262,18 @@ body { overflow-x: clip; }
   cursor: pointer; text-align: center; transition: border-color .2s, background .2s;
 }
 .cvlab__drop:hover { border-color: #705cff; background: rgba(112,92,255,.05); }
+/* The Replace CV control is a <label for="cvFile"> rather than a <button> that
+   calls input.click(): #cvFile is nested inside <label id="cvDrop">, so a
+   programmatic click on it could be forwarded a second time by that label, and
+   iOS Safari reads the second activation in the same gesture as a dismissal.
+   Suppressing selection and the long-press callout keeps the label behaving
+   like the button it replaced - iOS otherwise offers a text-selection callout
+   over a tappable label, which swallows the tap. */
+#cvReplaceBtn {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#cvReplaceBtn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 /* Visually hidden, still interactive. NOT display:none or the `hidden`
    attribute: iOS Safari refuses to open the file picker for a display:none
    input, which made tapping the upload zone do nothing on iPhone. */
