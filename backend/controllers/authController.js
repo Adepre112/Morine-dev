@@ -130,6 +130,16 @@ function getEmailTransporter() {
     // 465 = implicit TLS. 587 = plain then STARTTLS, which Nodemailer upgrades
     // to automatically before AUTH when the server advertises it.
     secure: smtpPort === 465,
+    /* IPv4 egress pin. On Render the container has both an IPv4 and an IPv6
+       address, and Nodemailer's default local-address selection can hand the
+       socket an address the upstream SMTP server cannot reply to. The send
+       then fails in a way that is indistinguishable from a provider outage
+       (that was the "deploy smtp ipv4" regression). 0.0.0.0 asks the kernel to
+       pick a routable IPv4 source address for the outbound connection.
+       This only affects the LEGACY SMTP fallback - the Brevo HTTPS path in
+       services/emailService.js never creates this transporter - but the
+       fallback is still the local-development path, so it stays pinned. */
+    localAddress: "0.0.0.0",
     auth: { user, pass },
     // Without these a blocked or unreachable SMTP port hangs for Nodemailer's
     // default 2 minutes before reporting anything, and the failure is
@@ -203,8 +213,16 @@ const SAFE_HOST = /^(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9]
  *
  * Set RESET_ALLOWED_HOSTS (comma-separated) if the app is served from a custom
  * domain, or if the service is renamed. Development is unrestricted so that
- * LAN testing (e.g. 192.168.x.x:3000) keeps working. */
-const DEFAULT_RESET_HOSTS = ["morine-ai.onrender.com"];
+ * LAN testing (e.g. 192.168.x.x:3000) keeps working.
+ *
+ * CANONICAL_PRODUCTION_HOST below is the ONE place the production origin is
+ * written down in code, and render.yaml declares the same value in
+ * RESET_ALLOWED_HOSTS so production is configured explicitly rather than
+ * inheriting a constant. If you move the service, change BOTH - and note that
+ * morine.onrender.com is a separate legacy service on the same database that
+ * is deliberately NOT authorised to receive reset links. */
+const CANONICAL_PRODUCTION_HOST = "morine-ai.onrender.com";
+const DEFAULT_RESET_HOSTS = [CANONICAL_PRODUCTION_HOST];
 
 function hostIsAllowed(host) {
   const hostname = String(host).replace(/:\d{1,5}$/, "").toLowerCase();
@@ -248,27 +266,37 @@ function safeHost(req) {
   return raw;
 }
 
-/** Returns "https://host" or "https://host:port", or null if it cannot be
-    established safely. */
+/** Returns { origin, source } where `origin` is "https://host" or
+ *  "https://host:port" and `source` names which rule produced it, or
+ *  { origin: null, source } when no origin can be established safely.
+ *  `source` exists purely so the log can say WHY a link was built or refused:
+ *  a reset silently skipped for want of a trustworthy origin was
+ *  indistinguishable in the Render log from a provider failure. */
 function resolveResetOrigin(req) {
   const configured = (process.env.FRONTEND_URL || "").trim();
   if (configured) {
     try {
       const parsed = new URL(configured);
       if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        return parsed.origin;
+        return { origin: parsed.origin, source: "FRONTEND_URL" };
       }
     } catch (e) {
       // Malformed FRONTEND_URL: fall through to the request rather than
       // trusting it.
     }
   }
-  if (!req) return null;
+  if (!req) return { origin: null, source: "no-request" };
   const host = safeHost(req);
-  if (!host || !hostIsAllowed(host)) return null;
+  if (!host) return { origin: null, source: "untrusted-host-header" };
+  if (!hostIsAllowed(host)) {
+    return { origin: null, source: "host-not-allowlisted" };
+  }
   const scheme = safeScheme(req);
-  if (!scheme) return null;
-  return `${IS_PRODUCTION ? "https" : scheme}://${host}`;
+  if (!scheme) return { origin: null, source: "untrusted-proto-header" };
+  return {
+    origin: `${IS_PRODUCTION ? "https" : scheme}://${host}`,
+    source: "request-host",
+  };
 }
 
 async function sendResetEmail(email, resetToken, req) {
@@ -300,16 +328,23 @@ async function sendResetEmail(email, resetToken, req) {
     }
   }
 
-  const origin = resolveResetOrigin(req);
+  const { origin, source: originSource } = resolveResetOrigin(req);
   // The token is only ever placed in a URL under a validated origin. It is
-  // never logged and never returned to the caller.
+  // never logged and never returned to the caller. `origin` is scheme+host only
+  // and carries no token, so it is safe to log; that single line is what makes
+  // a silently-skipped reset link diagnosable.
   let resetUrl = null;
   if (origin) {
     resetUrl = `${origin}/#/reset-password?token=${encodeURIComponent(resetToken)}`;
+    console.info("[Auth][email] reset-link origin=" + origin +
+      " source=" + originSource +
+      " (token not logged)");
   } else if (IS_PRODUCTION) {
     console.warn(
       "[Auth][email] skipped - class=" + EMAIL_STATUS.NOT_CONFIGURED +
-        " (no safe frontend origin for the reset link; set FRONTEND_URL or RESET_ALLOWED_HOSTS)"
+        " reason=" + originSource +
+        " (no safe frontend origin for the reset link; set FRONTEND_URL or" +
+        " RESET_ALLOWED_HOSTS to include " + CANONICAL_PRODUCTION_HOST + ")"
     );
     return false;
   } else {

@@ -6,6 +6,15 @@
  * allows. EMAIL_PROVIDER=smtp (or unset) selects the original Nodemailer path
  * in controllers/authController.js - this module never speaks SMTP.
  *
+ * Required when EMAIL_PROVIDER=brevo (NAMES only, values are never logged):
+ *   BREVO_API_KEY   Brevo API key, sent in the `api-key` request header.
+ *   EMAIL_FROM      the sender address. It is reduced to a BARE address here
+ *                   (see resolveSender) because Brevo's `sender.email` is
+ *                   `format: email` and rejects a "Name <addr>" wrapper.
+ *                   The address must also be VERIFIED in the Brevo account.
+ *   EMAIL_FROM_NAME the sender display name, sent as `sender.name`.
+ * Optional: EMAIL_TIMEOUT_MS (default 10000, capped at 60000).
+ *
  * Secrets handled here: BREVO_API_KEY. It is read into the `api-key` request
  * header and nowhere else - never into a log line, never into an error
  * message, and safeDetail() scrubs it defensively out of any detail text
@@ -41,6 +50,49 @@ function missingBrevoEnv() {
   );
 }
 
+/* Brevo's POST /v3/smtp/email takes the sender as TWO fields: `sender.email`
+   is declared `format: email` (a BARE address) and `sender.name` is a separate
+   display-name field capped at 70 characters. The SMTP path in
+   authController.js instead uses one RFC-5322 mailbox string
+   ("Morine <noreply@example.com>"), which is what EMAIL_FROM was documented as
+   and what many operators therefore typed into it. Handing that whole string to
+   sender.email makes Brevo answer 400 and the mail is refused, so the address
+   is extracted here instead of being trusted to already be bare. */
+const ANGLE_ADDRESS = /^\s*(?:"([^"]*)"|([^<>]*?))\s*<\s*([^\s@<>"']+@[^\s@<>"']+)\s*>\s*$/;
+const BARE_ADDRESS = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
+
+/** Splits an RFC-5322 mailbox into its display name and bare address.
+ *  "Morine <a@b.com>" -> { name: "Morine", email: "a@b.com" }
+ *  "a@b.com"          -> { name: "",     email: "a@b.com" }
+ *  Anything unparsable -> { name: "",     email: the trimmed input } so the
+ *  caller can reject it by testing `email` against BARE_ADDRESS. */
+function parseFromAddress(raw) {
+  const s = String(raw == null ? "" : raw).trim();
+  if (!s) return { email: "", name: "" };
+  const angled = s.match(ANGLE_ADDRESS);
+  if (!angled) return { email: s, name: "" };
+  return {
+    email: angled[3].trim(),
+    name: (angled[1] || angled[2] || "").trim(),
+  };
+}
+
+/** The exact payload Brevo must receive. `email` is always a bare address;
+ *  `name` is EMAIL_FROM_NAME, falling back to a display name embedded in
+ *  EMAIL_FROM so a legacy "Name <addr>" value still produces a correct From.
+ *  Returns { email, name, valid } - `valid` is false when EMAIL_FROM does not
+ *  reduce to a bare address, which is the condition Brevo would reject. */
+function resolveSender() {
+  const parsed = parseFromAddress(process.env.EMAIL_FROM);
+  const configuredName = String(process.env.EMAIL_FROM_NAME || "").trim();
+  const name = (configuredName || parsed.name || "").slice(0, 70);
+  return {
+    email: parsed.email,
+    name,
+    valid: BARE_ADDRESS.test(parsed.email),
+  };
+}
+
 function readTimeoutMs() {
   const raw = Number(process.env.EMAIL_TIMEOUT_MS);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TIMEOUT_MS;
@@ -74,12 +126,22 @@ class EmailSendError extends Error {
   }
 }
 
-/** Maps a non-2xx Brevo response onto one of EMAIL_STATUS. */
+/** Maps a non-2xx Brevo response onto one of EMAIL_STATUS.
+ *
+ *  400/404/422 is a parameter-validation family, and the only actionable split
+ *  inside it is "the envelope was refused" (an unverified/malformed sender, a
+ *  bad recipient address) versus everything else. Brevo words those several
+ *  ways - "sender", "from", "recipient", "envelope", and the bare "address" in
+ *  messages such as `Invalid 'to' address` - so all of them are matched. The
+ *  match is word-bounded so an incidental substring cannot promote an unrelated
+ *  failure to ENVELOPE_REJECTED. */
 function classifyFailure(status, haystack) {
   if (status === 401 || status === 403) return EMAIL_STATUS.AUTH_FAILED;
   if (status === 554) return EMAIL_STATUS.MESSAGE_REJECTED;
   if (status === 400 || status === 404 || status === 422) {
-    if (/sender|from|recipient|envelope/i.test(haystack)) return EMAIL_STATUS.ENVELOPE_REJECTED;
+    if (/\b(sender|from|recipient|envelope|address|addresses|adresse)s?\b/i.test(haystack)) {
+      return EMAIL_STATUS.ENVELOPE_REJECTED;
+    }
   }
   return EMAIL_STATUS.SEND_FAILED;
 }
@@ -101,7 +163,8 @@ function describeEmailError(error) {
  *
  *  POST https://api.brevo.com/v3/smtp/email
  *  headers: Content-Type: application/json, api-key: <BREVO_API_KEY>
- *  body:    { sender: { name, email }, to: [{ email }], subject, htmlContent }
+ *  body:    { sender: { name: EMAIL_FROM_NAME, email: <bare EMAIL_FROM> },
+ *            to: [{ email }], subject, htmlContent }
  *
  *  Aborts after ~10s (EMAIL_TIMEOUT_MS overrides). Resolves { ok: true } when
  *  Brevo answers 2xx; throws EmailSendError otherwise. */
@@ -130,6 +193,22 @@ async function sendBrevoEmail(message) {
     throw new EmailSendError("brevo send has no recipient", EMAIL_STATUS.ENVELOPE_REJECTED, null);
   }
 
+  /* Resolve the sender BEFORE opening a connection, so a misconfigured
+   * EMAIL_FROM fails fast and locally instead of costing a round trip to Brevo
+   * and coming back as an opaque 400. Brevo additionally requires this address
+   * to be registered and verified on the account; that check is Brevo's and its
+   * error is classified as ENVELOPE_REJECTED by classifyFailure(). */
+  const sender = resolveSender();
+  if (!sender.valid) {
+    throw new EmailSendError(
+      "EMAIL_FROM is not a usable sender address - set it to a BARE address " +
+        "(noreply@yourdomain.com) verified in the Brevo account; Brevo's " +
+        "sender.email must never contain a \"Name <addr>\" wrapper",
+      EMAIL_STATUS.ENVELOPE_REJECTED,
+      { status: 400, code: "invalid_sender" }
+    );
+  }
+
   const waitMs = readTimeoutMs();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), waitMs);
@@ -143,7 +222,7 @@ async function sendBrevoEmail(message) {
         "api-key": process.env.BREVO_API_KEY,
       },
       body: JSON.stringify({
-        sender: { name: process.env.EMAIL_FROM_NAME, email: process.env.EMAIL_FROM },
+        sender: { name: sender.name, email: sender.email },
         to: [{ email: to }],
         subject,
         htmlContent: html,
@@ -201,6 +280,8 @@ module.exports = {
   missingBrevoEnv,
   sendBrevoEmail,
   describeEmailError,
+  parseFromAddress,
+  resolveSender,
   EMAIL_STATUS,
   BREVO_API_URL,
 };

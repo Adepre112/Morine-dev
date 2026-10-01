@@ -23,6 +23,52 @@ process.on("exit", (code) => {
 console.log("[Morine] MONGODB_URI set:", !!process.env.MONGODB_URI);
 console.log("[Morine] GEMINI_API_KEY set:", !!process.env.GEMINI_API_KEY);
 
+/* Password-reset email transport, reported ONCE at boot.
+ *
+ * The transport is chosen only by EMAIL_PROVIDER, so a deployment that never
+ * sets it silently keeps the legacy SMTP path - which Render cannot egress on -
+ * and the first symptom is a reset request that returns HTTP 200 and delivers
+ * nothing. Printing the resolved provider, the reset-link allowlist and the
+ * NAMES of any missing variables at boot turns that into a visible deployment
+ * check instead of a production incident.
+ *
+ * Booleans and variable names only. BREVO_API_KEY, EMAIL_PASS, reset tokens
+ * and JWTs are never read for logging. */
+(function logEmailTransportAtBoot() {
+  const emailService = require("./services/emailService");
+  const provider = emailService.getEmailProvider();
+  console.log("[Morine] EMAIL_PROVIDER:", provider);
+  if (provider === "brevo") {
+    const missing = emailService.missingBrevoEnv();
+    if (missing.length) {
+      console.error("[Morine] EMAIL NOT READY - class=NOT_CONFIGURED missing " +
+        missing.join(", ") + " (reset email cannot be sent)");
+    } else {
+      // resolveSender() reduces EMAIL_FROM to the BARE address Brevo requires.
+      // Its boolean is safe to log; the address itself is not printed.
+      const sender = emailService.resolveSender();
+      console.log("[Morine] EMAIL ready provider=brevo senderAddressIsBareEmail=" +
+        sender.valid + " senderNameSet=" + !!sender.name);
+      if (!sender.valid) {
+        console.error("[Morine] EMAIL_FROM must be a BARE address " +
+          "(noreply@yourdomain.com) verified in Brevo - not a \"Name <addr>\" string");
+      }
+    }
+  } else {
+    const smtpMissing = ["EMAIL_HOST", "EMAIL_USER", "EMAIL_PASS"]
+      .filter((k) => !String(process.env[k] || "").trim());
+    if (smtpMissing.length) {
+      console.warn("[Morine] EMAIL legacy smtp path selected but missing " +
+        smtpMissing.join(", ") + "; reset email cannot be sent");
+    } else {
+      console.log("[Morine] EMAIL legacy smtp path selected (EMAIL_PROVIDER=brevo " +
+        "is the production transport)");
+    }
+  }
+  console.log("[Morine] RESET_ALLOWED_HOSTS:",
+    String(process.env.RESET_ALLOWED_HOSTS || "").trim() || "(unset - using the canonical production host)");
+})();
+
 // The refresh cookie is Secure in production, which means browsers will drop it
 // over plain HTTP. If NODE_ENV is unset on the host, the cookie silently
 // degrades to a development policy and every production session breaks at the

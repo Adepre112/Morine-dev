@@ -15,6 +15,26 @@
 # PORT is intentionally NOT declared. Render injects PORT itself, and
 # server.js already reads `process.env.PORT || 3000`, so production binds to
 # the injected port while local development stays on 3000.
+#
+# PRODUCTION HOST -- read this before changing anything in envVars.
+#
+#   The production service the team uses is  https://morine-ai.onrender.com
+#   and it is the fully configured one (it has JOB_LISTING_API_KEY).
+#
+#   There is a SECOND, older Render service at https://morine.onrender.com.
+#   It runs the same commit against the SAME MongoDB database but has a
+#   different, incomplete environment (JOB_LISTING_API_KEY is missing there,
+#   so /api/jobs answers 500 missing_api_key). It is legacy and must not be
+#   treated as the frontend: nothing in this file points the frontend at it,
+#   js/config.js resolves the API base to same-origin, and RESET_ALLOWED_HOSTS
+#   below deliberately does not list it.
+#
+#   `name: morine` below is left as-is on purpose. Renaming it would rebind the
+#   Blueprint to a different service, and that is a dashboard-side change this
+#   file cannot verify. Anyone renaming the production service must update
+#   `name`, RESET_ALLOWED_HOSTS and CANONICAL_PRODUCTION_HOST in
+#   backend/controllers/authController.js together, or reset links will be
+#   silently refused.
 
 services:
   - type: web
@@ -56,17 +76,65 @@ services:
       - key: GEMINI_API_KEY
         sync: false        # Gemini AI provider
 
-      # --- Email configuration (for password reset) ---------------------
-      - key: EMAIL_HOST
-        sync: false        # SMTP host (e.g., smtp.sendgrid.net, smtp.gmail.com)
-      - key: EMAIL_PORT
-        sync: false        # SMTP port (587 for TLS, 465 for SSL)
-      - key: EMAIL_USER
-        sync: false        # SMTP username
-      - key: EMAIL_PASS
-        sync: false        # SMTP password
+      # --- Password-reset email (Brevo HTTPS API) -------------------------
+      # PRODUCTION TRANSPORT. Render blocks outbound SMTP (25/465/587), so the
+      # reset mail goes to Brevo's REST API over ordinary HTTPS (443) instead of
+      # Nodemailer. EMAIL_PROVIDER=brevo is the ONLY switch that selects it:
+      # controllers/authController.js reads nothing else to decide, and any other
+      # value (including unset) keeps the legacy SMTP path. Without this line the
+      # reset API still answers HTTP 200 and delivers nothing.
+      - key: EMAIL_PROVIDER
+        value: brevo
+
+      # Brevo API key (xkeys). Read only into the `api-key` request header and
+      # never logged. Create at https://app.brevo.com/settings/keys/api
+      - key: BREVO_API_KEY
+        sync: false
+
+      # The sender address. MUST be a BARE address and MUST be registered and
+      # verified in the Brevo account (https://app.brevo.com/settings/senders).
+      # Do NOT write it as `"Morine <noreply@yourdomain.com>"`: Brevo's
+      # sender.email field is `format: email` and rejects a display-name
+      # wrapper with HTTP 400. services/emailService.js strips a wrapper if one
+      # is present, but a bare address is unambiguous.
       - key: EMAIL_FROM
-        sync: false        # From address (e.g., "Morine <noreply@morine.ai>")
+        sync: false
+
+      # Sender display name, sent to Brevo as sender.name (max 70 chars).
+      - key: EMAIL_FROM_NAME
+        sync: false
+
+      # Optional. Brevo request timeout in ms. Defaults to 10000, capped 60000.
+      # EMAIL_TIMEOUT_MS=10000
+
+      # --- Legacy SMTP fallback (local development only) -----------------
+      # Retained so a developer without Brevo credentials can still send a reset
+      # mail from localhost. NOT the production transport, and not read when
+      # EMAIL_PROVIDER=brevo. On Render these cannot egress, which is why
+      # production uses the HTTPS path above.
+      - key: EMAIL_HOST
+        sync: false        # e.g. smtp.gmail.com
+      - key: EMAIL_PORT
+        sync: false        # 587 for STARTTLS, 465 for implicit TLS
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false        # Gmail: an App Password, not the account password
+
+      # --- Password-reset link host --------------------------------------
+      # The reset link is built from the request Host header, which is
+      # attacker-controlled, so authController.js only emits a link for a host
+      # on this allowlist. Declaring it here makes the production origin
+      # explicit configuration instead of an in-code fallback constant, and it
+      # must list the host the production frontend is actually served from:
+      #   https://morine-ai.onrender.com
+      # morine.onrender.com is a separate legacy service on the same database
+      # and is deliberately NOT listed: it is not the production frontend, and
+      # a reset submitted there must not mint a link pointing at it.
+      # Multiple hosts: comma-separated. A leading "." opts an entry into
+      # subdomains, e.g. ".yourdomain.com".
+      - key: RESET_ALLOWED_HOSTS
+        value: morine-ai.onrender.com
 
       # --- Optional configuration ------------------------------------------
       - key: AI_PROVIDER
